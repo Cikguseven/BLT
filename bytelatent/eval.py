@@ -4,23 +4,18 @@ import json
 import logging
 import math
 import os
-from collections import defaultdict
 from datetime import datetime
 
 import torch
 from lm_eval import simple_evaluate
 from lm_eval.api.instance import Instance
 from lm_eval.api.model import LM
-from rich.progress import track
 from torch.nn import functional as F
 
 from bytelatent.args import (
     EvalArgs,
-    TrainArgs,
-    ValidationArgs,
-    find_and_sanitize_chunks,
 )
-from bytelatent.checkpoint import CONSOLIDATE_FOLDER, consolidate_checkpoints
+from bytelatent.checkpoint import consolidate_checkpoints
 from bytelatent.config_parser import parse_args_to_pydantic_model
 from bytelatent.data.file_util import get_fs
 from bytelatent.data.iterators.arrow_iterator import ArrowFileIterator
@@ -38,7 +33,6 @@ from bytelatent.data.iterators.sequence_iterator import (
 from bytelatent.data.patcher import PatcherArgs, PatchingModeEnum
 from bytelatent.distributed import (
     DistributedArgs,
-    dist_mean_dict,
     dist_sum,
     get_device_mesh,
     get_global_rank,
@@ -50,6 +44,7 @@ from bytelatent.generate import (
     PackedCausalTransformerGenerator,
     load_consolidated_model_and_tokenizer,
 )
+from bytelatent.generate_blt import generate_nocache
 from bytelatent.model.blt import ByteLatentTransformer
 from bytelatent.tokenizers.build_tokenizer import TokenizerArgs
 from bytelatent.transformer import LMTransformer
@@ -80,13 +75,16 @@ class MockAccelerator:
 
 # Light wrapper around generator for lm-eval harness
 class EvalHarnessLM(LM):
-    def __init__(self, generator):
+    def __init__(self, generator, model=None, tokenizer=None, patcher=None):
         super().__init__()
         self.generator = generator
+        self.model = model
+        self.tokenizer = tokenizer
+        self.patcher = patcher
         self.accelerator = MockAccelerator()
         self._rank = get_global_rank()
         self._world_size = get_world_size()
-        self.device = generator.device
+        self.device = generator.device if generator is not None else next(model.parameters()).device
 
     def generate_until(self, requests: list[Instance]) -> list[str]:
         prompts, gen_args = zip(*[req.args for req in requests])
@@ -97,11 +95,25 @@ class EvalHarnessLM(LM):
         top_k = gen_args.get("top_k", None)
         until = gen_args.get("until", [])
 
-        self.generator.temperature = temperature
-        self.generator.top_p = top_p
-        self.generator.top_k = top_k
-        self.generator.until = until
-        generations, _, _ = self.generator.generate(prompts)
+        if isinstance(self.model, ByteLatentTransformer):
+            use_sampling = temperature > 0.0 or top_p is not None or top_k is not None
+            outputs = generate_nocache(
+                prompts,
+                model=self.model,
+                tokenizer=self.tokenizer,
+                patcher=self.patcher,
+                use_sampling=use_sampling,
+                temp=temperature,
+                top_p=top_p,
+                top_k=top_k,
+            )
+            generations = [self.tokenizer.decode(t) for t in outputs]
+        else:
+            self.generator.temperature = temperature
+            self.generator.top_p = top_p
+            self.generator.top_k = top_k
+            self.generator.until = until
+            generations, _, _ = self.generator.generate(prompts)
         filtered_gen = []
         for g in generations:
             for e in until:
@@ -112,6 +124,63 @@ class EvalHarnessLM(LM):
     def loglikelihood(self, requests: list[Instance]) -> list[tuple[float, bool]]:
         prompts, continuations = zip(*[req.args for req in requests])
         inputs = [req.args[0] + req.args[1] for req in requests]
+        if isinstance(self.model, ByteLatentTransformer):
+            results = []
+            for prompt, continuation in zip(prompts, continuations):
+                prompt_tok = self.tokenizer.encode(
+                    prompt, add_bos=False, add_eos=False
+                )
+                cont_tok = self.tokenizer.encode(
+                    continuation, add_bos=False, add_eos=False
+                )
+                full_tok = prompt_tok + cont_tok
+                x, y, patch_lengths = self.patcher.patch_and_preproc_one(full_tok)
+
+                x = torch.from_numpy(x).to(self.device).unsqueeze(0)
+                y = torch.from_numpy(y).to(self.device).unsqueeze(0)
+                patch_lengths = (
+                    torch.from_numpy(patch_lengths).to(self.device).unsqueeze(0)
+                    if patch_lengths is not None
+                    else None
+                )
+
+                pad_id = getattr(self.tokenizer, "pad_id", None)
+                if pad_id is None:
+                    pad_id = getattr(self.tokenizer, "boe_id", 0)
+                pad_id = int(pad_id)
+
+                with torch.amp.autocast(device_type='cuda', dtype=torch.bfloat16):
+                    logits = self.model(x, patch_lengths=patch_lengths)
+
+                prompt_patched_len = self.patcher.get_patched_len(prompt_tok)
+
+                cont_logits = logits[:, prompt_patched_len : -1, :]
+                cont_targets = y[:, prompt_patched_len + 1:]
+
+                min_len = min(cont_logits.shape[1], cont_targets.shape[1])
+                cont_logits = cont_logits[:, :min_len, :]
+                cont_targets = cont_targets[:, :min_len]
+
+                loss = F.cross_entropy(
+                    logits[:, :-1, :].flatten(0, 1),
+                    y[:, 1:].flatten(0, 1),
+                    reduction="sum",
+                    ignore_index=pad_id,
+                )
+                log_likelihood = -loss.item()
+
+                greedy_preds = torch.argmax(cont_logits, dim=-1)
+                valid_positions = cont_targets != pad_id
+                if valid_positions.any():
+                    is_greedy = (
+                        greedy_preds[valid_positions] == cont_targets[valid_positions]
+                    ).all().item()
+                else:
+                    is_greedy = True
+
+                results.append((log_likelihood, is_greedy))
+            return results
+
         max_gen_len = self.generator.max_gen_len
         # We temporarily lower max gen len
         self.generator.max_gen_len = 1
@@ -128,6 +197,31 @@ class EvalHarnessLM(LM):
 
     def loglikelihood_rolling(self, requests: list[Instance]) -> list[float]:
         prompts = [req.args[0] for req in requests]
+        if isinstance(self.model, ByteLatentTransformer):
+            results = []
+            for prompt in prompts:
+                full_tok = self.tokenizer.encode(prompt, add_bos=False, add_eos=False)
+                x, y, patch_lengths = self.patcher.patch_and_preproc_one(full_tok)
+
+                x = torch.from_numpy(x).to(self.device).unsqueeze(0)
+                y = torch.from_numpy(y).to(self.device).unsqueeze(0)
+                patch_lengths = (
+                    torch.from_numpy(patch_lengths).to(self.device).unsqueeze(0)
+                    if patch_lengths is not None
+                    else None
+                )
+
+                logits = self.model(x, patch_lengths=patch_lengths)
+                loss = F.cross_entropy(
+                    logits[:, :-1, :].flatten(0, 1),
+                    y[:, 1:].flatten(0, 1),
+                    reduction="sum",
+                    ignore_index=0,
+                )
+                log_likelihood = -loss.item()
+                results.append(log_likelihood)
+            return results
+
         max_gen_len = self.generator.max_gen_len
         # We temporarily lower max gen len
         self.generator.max_gen_len = 1
@@ -204,10 +298,12 @@ def eval_ppl_on_path(
             n_bytes += y.numel() if mask is None else mask.sum().item()
             if isinstance(model, ByteLatentTransformer):
                 pred = model(x, patch_lengths=patch_lengths)
+                pad_id = getattr(model.tokenizer, "pad_id", getattr(model.tokenizer, "boe_id", 0))
             else:
                 pred = model(x)
+                pad_id = packing_args.pad_id
             loss = F.cross_entropy(
-                pred.flatten(0, 1), y.flatten(0, 1), reduction="sum", ignore_index=0
+                pred.flatten(0, 1), y.flatten(0, 1), reduction="sum", ignore_index=pad_id
             )
             total_loss += loss.item()
         else:
@@ -227,8 +323,12 @@ def eval_ppl_on_path(
 
 
 def launch_eval(eval_args: EvalArgs):
-    assert eval_args.dump_dir is not None
     assert eval_args.ckpt_dir is not None
+    assert eval_args.dump_dir is not None
+
+    timestamp = datetime.now().strftime("%m%d-%H%M")
+    dump_dir = f"{eval_args.dump_dir}_{timestamp}"
+
     distributed_args = DistributedArgs()
     distributed_args.configure_world()
     if not torch.distributed.is_initialized():
@@ -263,8 +363,8 @@ def launch_eval(eval_args: EvalArgs):
                 "Did not find a consolidated checkpoint and consolidate_if_needed is False"
             )
 
-    fs.mkdirs(eval_args.dump_dir, exist_ok=True)
-    with fs.open(os.path.join(eval_args.dump_dir, "config.yaml"), "w") as f:
+    fs.mkdirs(dump_dir, exist_ok=True)
+    with fs.open(os.path.join(dump_dir, "config.yaml"), "w") as f:
         f.write(eval_args.model_dump_json())
 
     torch.distributed.barrier()
@@ -315,20 +415,24 @@ def launch_eval(eval_args: EvalArgs):
     if eval_args.run_tasks:
         assert eval_args.generator is not None
         assert eval_args.harness is not None
-        generator = PackedCausalTransformerGenerator(
-            eval_args.generator, model, tokenizer
-        )
-        wrap = EvalHarnessLM(generator)
-        # TODO: This needs to be checked/sped up
+        if isinstance(model, ByteLatentTransformer):
+            patcher_args = train_cfg.data.patcher_args.model_copy(deep=True)
+            patcher_args.realtime_patching = True
+            if eval_args.entropy_ckpt_dir:
+                patcher_args.entropy_model_checkpoint_dir = eval_args.entropy_ckpt_dir
+            patcher = patcher_args.build()
+            wrap = EvalHarnessLM(None, model=model, tokenizer=tokenizer, patcher=patcher)
+        else:
+            generator = PackedCausalTransformerGenerator(
+                eval_args.generator, model, tokenizer
+            )
+            wrap = EvalHarnessLM(generator)
         task_results = simple_evaluate(wrap, **eval_args.harness.model_dump())
 
     results = {"ppl": ppl_results, "tasks": task_results}
-    # TODO: Serial and Parallel yield slightly different number of bytes, debug this later,
-    # leaving this log statement here to help with that.
-    # logging.info("Rank: %s Results: %s", world_rank, results)
 
     if get_global_rank() == 0:
-        with fs.open(os.path.join(eval_args.dump_dir, "results.json"), "w") as f:
+        with fs.open(os.path.join(dump_dir, "results.json"), "w") as f:
             f.write(json.dumps(results))
         logger.info(f"All evaluation results: {results}")
         if ppl_results is not None:
@@ -345,25 +449,22 @@ def launch_eval(eval_args: EvalArgs):
         }
         if eval_args.global_step is not None:
             timestamp["global_step"] = eval_args.global_step
-        print(
-            json.dumps(timestamp | results),
-            file=fs.open(metric_log_path, mode="a"),
-            flush=True,
-        )
+
+        with fs.open(metric_log_path, mode="a") as f:
+            f.write(json.dumps(timestamp | results) + "\n")
+            f.flush()
 
         val_log_path = os.path.join(
             eval_args.metric_log_dir, "metrics.validation.jsonl"
         )
         if ppl_results is not None:
-            print(
-                json.dumps(timestamp | ppl_results),
-                file=fs.open(val_log_path, mode="a"),
-                flush=True,
-            )
+            with fs.open(val_log_path, mode="a") as f:
+                f.write(json.dumps(timestamp | ppl_results) + "\n")
+                f.flush()
 
 
 def main():
-    eval_args = parse_args_to_pydantic_model(EvalArgs)
+    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="apps/main/configs/eval_custom.yaml")
     launch_eval(eval_args)
 
 

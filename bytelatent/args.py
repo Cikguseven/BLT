@@ -278,8 +278,8 @@ class EvalArgs(BaseModel):
 
     prompts: list[str] | None = None
 
-    run_ppl: bool = True
-    run_tasks: bool = False
+    run_ppl: bool = False
+    run_tasks: bool = True
 
     generator: PackedCausalTransformerGeneratorArgs = (
         PackedCausalTransformerGeneratorArgs()

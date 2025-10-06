@@ -6,6 +6,7 @@ from collections import defaultdict
 from contextlib import nullcontext
 from enum import Enum
 
+import numpy as np
 import torch
 from pydantic import BaseModel
 from torch.nn import functional as F
@@ -504,6 +505,32 @@ class Patcher:
         self.log_time = patcher_args.log_time
         if self.log_time:
             self.log = defaultdict(float)
+
+    def patch_and_preproc_one(self, tokens: list[int]):
+        """
+        Takes a single list of tokens, patches it, and returns numpy arrays for x, y, and patch_lengths.
+        """
+        tokens_tensor = torch.tensor([tokens], dtype=torch.long, device="cpu")
+        patch_lengths_tensor, _ = self.patch(tokens_tensor, include_next_token=False)
+
+        x = tokens_tensor.squeeze(0).numpy()
+        y = np.roll(x, -1)
+        y[-1] = 0  # Typically padding or a special token
+
+        patch_lengths = patch_lengths_tensor.squeeze(0).cpu().numpy()
+
+        return x, y, patch_lengths
+
+    def get_patched_len(self, tokens: list[int]) -> int:
+        """
+        Calculates the number of patches for a given token sequence.
+        """
+        if not tokens:
+            return 0
+        tokens_tensor = torch.tensor([tokens], dtype=torch.long, device="cpu")
+        patch_lengths_tensor, _ = self.patch(tokens_tensor, include_next_token=False)
+        # Return the number of non-zero patch lengths
+        return torch.count_nonzero(patch_lengths_tensor).item()
 
     def patch(
         self,

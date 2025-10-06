@@ -4,6 +4,7 @@ from enum import Enum, auto
 from typing import Any, Optional
 
 import torch
+import os
 from huggingface_hub import PyTorchModelHubMixin
 from pydantic import model_validator
 from torch import nn
@@ -20,6 +21,32 @@ from bytelatent.model.latent_transformer import GlobalTransformer
 from bytelatent.model.local_models import LocalDecoder, LocalEncoder, LocalModelArgs
 from bytelatent.model.utils import downsample
 from bytelatent.tokenizers.constants import BOE_ID, BOS_ID, EOS_ID, OFFSET, PAD_ID
+
+
+
+# ---- Debug helpers (opt-in via env) ----
+def _dbg_enabled() -> bool:
+    return os.environ.get("BLT_DEBUG", "0") != "0"
+
+def _rank() -> int:
+    if torch.distributed.is_initialized():
+        try:
+            return torch.distributed.get_rank()
+        except Exception:
+            return 0
+    return 0
+
+def dbg(msg: str):
+    if _dbg_enabled():
+        print(f"[BLT DEBUG][rank{_rank()}] {msg}", flush=True)
+
+def tdesc(t: torch.Tensor | None) -> str:
+    if t is None:
+        return "None"
+    try:
+        return f"shape={tuple(t.shape)} dtype={t.dtype} device={t.device}"
+    except Exception:
+        return str(type(t))
 
 
 def attention_flops_per_token(n_layers, seq_len, dim, causal):
@@ -216,6 +243,7 @@ def create_patch_mask_from_ids(
         torch.Tensor: Tensor of shape [bs, q_len, kv_len] with the desired mask.
     """
     bs, seq_len = patch_ids.shape
+    dbg(f"create_patch_mask_from_ids: patch_ids={tdesc(patch_ids)}, num_patches={num_patches}, window={window}, patches_as_queries={patches_as_queries}")
     if not patches_as_queries:
         q_ids = patch_ids.unsqueeze(-1).expand(bs, seq_len, num_patches)
         kv_ids = (
@@ -236,6 +264,11 @@ def create_patch_mask_from_ids(
         mask = q_ids == kv_ids
     else:
         mask = (kv_ids <= q_ids) & (q_ids < kv_ids + window)
+    try:
+        frac = mask.float().mean().item()
+        dbg(f"create_patch_mask_from_ids: out mask.shape={tuple(mask.shape)} true_frac={frac:.6f}")
+    except Exception:
+        dbg(f"create_patch_mask_from_ids: out mask.shape={tuple(mask.shape)}")
     return mask
 
 
@@ -250,6 +283,10 @@ def cross_attn_mask(
 ):
     bs = patch_ids.shape[0]
     with torch.no_grad():
+        dbg(
+            f"cross_attn_mask: bs={bs}, N={N}, patches_as_queries={patches_as_queries}, "
+            f"cross_attn_k={cross_attn_k}, window={window}, block_mask={block_mask}"
+        )
         # Create the patch mask
         cross_mask = create_patch_mask_from_ids(
             patch_ids,
@@ -259,6 +296,10 @@ def cross_attn_mask(
         ).repeat_interleave(cross_attn_k, dim=1 if patches_as_queries else -1)
         q_len = patch_lengths.shape[1] * cross_attn_k if patches_as_queries else N
         kv_len = N if patches_as_queries else patch_lengths.shape[1] * cross_attn_k
+        dbg(
+            f"cross_attn_mask: patch_ids={tdesc(patch_ids)}, patch_lengths={tdesc(patch_lengths)}, "
+            f"cross_mask={tdesc(cross_mask)}, q_len={q_len}, kv_len={kv_len}"
+        )
         assert cross_mask.shape == (
             bs,
             q_len,
@@ -269,21 +310,35 @@ def cross_attn_mask(
             def patch_mask(b, h, q_idx, kv_idx):
                 return cross_mask[b, q_idx, kv_idx]
 
-            block_mask = create_block_mask(
-                patch_mask,
-                B=bs,
-                H=None,
-                Q_LEN=q_len,
-                KV_LEN=kv_len,
-                _compile=True,
-            )
-            return block_mask
+            compile_flag = os.environ.get("BLT_DEBUG_NOCOMPILE", "0") == "0"
+            dbg(f"cross_attn_mask: calling create_block_mask(_compile={compile_flag})")
+            try:
+                block_mask = create_block_mask(
+                    patch_mask,
+                    B=bs,
+                    H=None,
+                    Q_LEN=q_len,
+                    KV_LEN=kv_len,
+                    _compile=compile_flag,
+                )
+                dbg(f"cross_attn_mask: block_mask={tdesc(block_mask)}")
+                return block_mask
+            except Exception as e:
+                # Dump a bit more state before re-raising
+                dbg(f"create_block_mask failed: {type(e).__name__}: {e}")
+                try:
+                    dbg(f"patch_ids[0,:10]={patch_ids[0, : min(10, patch_ids.shape[1])].tolist()}")
+                    dbg(f"patch_lengths[0,:10]={patch_lengths[0, : min(10, patch_lengths.shape[1])].tolist()}")
+                    dbg(f"cross_mask.any()={bool(cross_mask.any().item())}")
+                except Exception:
+                    pass
+                raise
         else:
-            return torch.where(
+            attn_bias = torch.where(
                 cross_mask, torch.tensor(0.0), torch.tensor(float("-inf"))
-            ).unsqueeze(
-                1
-            )  # [bs, 1, q_len, kv_len]
+            ).unsqueeze(1)
+            dbg(f"cross_attn_mask: attn_bias={tdesc(attn_bias)}")
+            return attn_bias  # [bs, 1, q_len, kv_len]
 
 
 def get_blt_input(
@@ -887,6 +942,7 @@ class ByteLatentTransformer(
         patch_lengths: Optional[torch.Tensor] = None,
         ngram_ids: Optional[torch.Tensor] = None,
     ):
+        dbg(f"BLT.forward: tokens {tdesc(tokens)}, patch_lengths {tdesc(patch_lengths)}, ngram_ids {tdesc(ngram_ids)}")
         # Ensure ngram_ids is either a tensor or None
         assert (
             isinstance(ngram_ids, torch.Tensor) or ngram_ids is None
@@ -896,6 +952,7 @@ class ByteLatentTransformer(
 
         # Get megabyte inputs
         nb_boe = int(0 if self.patching_mode != "" else self.patch_size - 1)
+        dbg(f"BLT.forward: nb_boe={nb_boe}, patch_size={self.patch_size}, patching_mode='{self.patching_mode}'")
         local_encoder_tokens, _, local_decoder_tokens = get_blt_input(
             tokens=tokens,
             enforce_patch_size_multiple=False,
@@ -903,6 +960,7 @@ class ByteLatentTransformer(
             patch_size=self.patch_size,
             boe_id=self.boe_id,
         )
+        dbg(f"BLT.forward: local_encoder_tokens {tdesc(local_encoder_tokens)}, local_decoder_tokens {tdesc(local_decoder_tokens)}")
 
         # Patching
         if patch_lengths is None:
@@ -914,9 +972,11 @@ class ByteLatentTransformer(
                 include_next_token=True,
                 threshold=self.patcher.threshold,
             )
+            dbg(f"BLT.forward: patched (runtime) patch_lengths {tdesc(patch_lengths)}")
         else:
             if nb_boe > 0:
                 patch_lengths[:, 0] += nb_boe
+            dbg(f"BLT.forward: using provided patch_lengths {tdesc(patch_lengths)}")
 
         assert torch.min(patch_lengths) >= 0
 
@@ -924,6 +984,7 @@ class ByteLatentTransformer(
         patch_ids = patch_ids_from_lengths(
             patch_lengths, local_encoder_tokens.shape[-1]
         )
+        dbg(f"BLT.forward: patch_ids {tdesc(patch_ids)} (max={int(torch.max(patch_ids).item())}, min={int(torch.min(patch_ids).item())})")
         assert torch.max(patch_ids) + 1 <= torch.max(
             (patch_lengths != 0).sum(dim=-1)
         ), f"{torch.max(patch_ids) + 1} > {torch.max((patch_lengths != 0).sum(dim=-1))}"
@@ -931,6 +992,7 @@ class ByteLatentTransformer(
         cross_attn_mask_enc = None
         # Cross-attention encoder
         if self.cross_attn_encoder:
+            dbg("BLT.forward: building encoder cross_attn_mask")
             cross_attn_mask_enc = cross_attn_mask(
                 patch_ids,
                 patch_lengths,
@@ -950,6 +1012,7 @@ class ByteLatentTransformer(
             encoder_hash_byte_group_size=self.encoder_hash_byte_group_size,
             encoder_hash_byte_group_vocab=self.encoder_hash_byte_group_vocab,
         )
+        dbg(f"BLT.forward: local_encoder_embeds {tdesc(local_encoder_embeds)}")
 
         # N-gram table embeddings
         if self.encoder_ngram_embedding is not None:
@@ -978,6 +1041,7 @@ class ByteLatentTransformer(
             num_patches=patch_lengths.shape[1],
             patch_ids=patch_ids,
         )
+        dbg(f"BLT.forward: h_encoder {tdesc(h_encoder)}, h_cross {tdesc(h_cross)}")
 
         # Downsampling
         if not self.cross_attn_encoder:
@@ -995,6 +1059,7 @@ class ByteLatentTransformer(
         else:
             # Reshape h_cross
             h = h_cross.view(bs, patch_lengths.shape[1], -1)
+        dbg(f"BLT.forward: global input h {tdesc(h)}")
 
         # Global transformer
         global_tokens = tokens.new(h.shape[0], h.shape[1]).fill_(self.boe_id)
@@ -1006,14 +1071,17 @@ class ByteLatentTransformer(
             embeds=h,
             tokens=global_tokens,
         )
+        dbg(f"BLT.forward: global output h {tdesc(h)}")
 
         # Unpatching
         dec_embeds = h_encoder[:, nb_boe : nb_boe + N, :]
+        dbg(f"BLT.forward: dec_embeds {tdesc(dec_embeds)}")
 
         # Generate decoder patch IDs
         decoder_patch_ids = decoder_patch_ids_from_lengths(
             patch_lengths, nb_boe, local_decoder_tokens.shape[-1]
         )
+        dbg(f"BLT.forward: decoder_patch_ids {tdesc(decoder_patch_ids)} (max={int(torch.max(decoder_patch_ids).item())})")
         assert (
             torch.max(decoder_patch_ids) + 1 <= h.shape[1]
         ), f"{torch.max(decoder_patch_ids) + 1} > {h.shape[1]}"
@@ -1029,6 +1097,7 @@ class ByteLatentTransformer(
             cross_attn_mask_dec = None
             assert local_decoder_tokens.shape == h.shape[:-1]
         else:
+            dbg("BLT.forward: building decoder cross_attn_mask")
             cross_attn_mask_dec = cross_attn_mask(
                 decoder_patch_ids,
                 patch_lengths,
@@ -1046,6 +1115,7 @@ class ByteLatentTransformer(
             tokens=local_decoder_tokens,
             cross_mask=cross_attn_mask_dec,
         )
+        dbg(f"BLT.forward: output {tdesc(output)}")
         return output
 
     def init_weights(self):
