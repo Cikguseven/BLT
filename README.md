@@ -99,9 +99,9 @@ python -m bytelatent.hf load-transformers --entropy-repo facebook/blt-entropy --
 In your own code:
 
 ```python
-from bytelatent.transformer import LMTransformer
-from bytelatent.model.blt import ByteLatentTransformer
 from bytelatent.hf import BltTokenizerAndPatcher
+from bytelatent.model.blt import ByteLatentTransformer
+from bytelatent.transformer import LMTransformer
 
 entropy_repo = "facebook/blt-entropy"
 blt_repo = "facebook/blt-1b"

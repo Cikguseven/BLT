@@ -439,9 +439,8 @@ def main():
 
     fs = get_fs(eval_args.ckpt_dir, s3_profile=eval_args.s3_profile)
 
-    if (
-        fs.exists(eval_args.ckpt_dir)
-        and fs.exists(os.path.join(eval_args.ckpt_dir, "params.json"))
+    if fs.exists(eval_args.ckpt_dir) and fs.exists(
+        os.path.join(eval_args.ckpt_dir, "params.json")
     ):
         consolidate_path = eval_args.ckpt_dir
     else:

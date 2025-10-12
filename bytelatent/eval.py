@@ -366,7 +366,9 @@ def launch_eval(eval_args: EvalArgs):
 
 
 def main():
-    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="apps/main/configs/eval.yaml")
+    eval_args = parse_args_to_pydantic_model(
+        EvalArgs, cli_args="apps/main/configs/eval.yaml"
+    )
     launch_eval(eval_args)
 
 
