@@ -4,7 +4,6 @@ import os
 import time
 
 import torch
-from omegaconf import OmegaConf
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.attention.flex_attention import create_block_mask
@@ -19,8 +18,8 @@ from bytelatent.base_transformer import (
     lengths_to_start_ids,
 )
 from bytelatent.checkpoint import (
+    CONSOLIDATE_BLT_NAME,
     CONSOLIDATE_FOLDER,
-    CONSOLIDATE_NAME,
     consolidate_checkpoints,
 )
 from bytelatent.config_parser import parse_args_to_pydantic_model
@@ -76,9 +75,9 @@ def pack_prompts(prompts: list[int]):
     lengths = []
     for i, p in enumerate(prompts):
         p = torch.tensor(p, dtype=torch.long)
-        l = p.size(0)
+        length = p.size(0)
         res.append(p)
-        lengths.append(l)
+        lengths.append(length)
     lengths = torch.tensor(lengths, dtype=torch.long)
     res = torch.cat(res)
     return res, lengths
@@ -413,9 +412,21 @@ def load_consolidated_model_and_tokenizer(consolidated_path, init_distributed=Fa
         train_args.distributed.model_dtype
     ]
     tokenizer = train_args.data.tokenizer_args.build()
-    with fs.open(os.path.join(consolidated_path, CONSOLIDATE_NAME)) as f:
-        st_dict = torch.load(f, weights_only=True)
-    model.load_state_dict(st_dict["model"])
+    safetensor_path = os.path.join(consolidated_path, CONSOLIDATE_BLT_NAME)
+
+    if fs.exists(safetensor_path):
+        from safetensors.torch import load as safetensors_load
+
+        with fs.open(safetensor_path, "rb") as f:
+            tensor_bytes = f.read()
+        model_state = safetensors_load(tensor_bytes)
+    else:
+        available = fs.glob(os.path.join(consolidated_path, "*"))
+        raise FileNotFoundError(
+            f"Could not find consolidated weights in {consolidated_path}. Found: {available}"
+        )
+
+    model.load_state_dict(model_state)
     model = model.cuda().eval()
     for param in model.parameters():
         param.data = param.data.to(dtype=param_dtype)
@@ -427,10 +438,10 @@ def main():
     eval_args = parse_args_to_pydantic_model(EvalArgs)
 
     fs = get_fs(eval_args.ckpt_dir, s3_profile=eval_args.s3_profile)
+
     if (
         fs.exists(eval_args.ckpt_dir)
         and fs.exists(os.path.join(eval_args.ckpt_dir, "params.json"))
-        and len(fs.glob(os.path.join(eval_args.ckpt_dir, "*.pth"))) != 0
     ):
         consolidate_path = eval_args.ckpt_dir
     else:

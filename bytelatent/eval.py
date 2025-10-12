@@ -244,7 +244,10 @@ def launch_eval(eval_args: EvalArgs):
     if (
         fs.exists(eval_args.ckpt_dir)
         and fs.exists(os.path.join(eval_args.ckpt_dir, "params.json"))
-        and len(fs.glob(os.path.join(eval_args.ckpt_dir, "*.pth"))) != 0
+        and (
+            len(fs.glob(os.path.join(eval_args.ckpt_dir, "*.pth"))) != 0
+            or len(fs.glob(os.path.join(eval_args.ckpt_dir, "*.safetensors"))) != 0
+        )
     ):
         consolidate_path = eval_args.ckpt_dir
     else:
@@ -363,7 +366,7 @@ def launch_eval(eval_args: EvalArgs):
 
 
 def main():
-    eval_args = parse_args_to_pydantic_model(EvalArgs)
+    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="apps/main/configs/eval.yaml")
     launch_eval(eval_args)
 
 

@@ -34,6 +34,7 @@ RE_CKPT = r"__\d_\d\.distcp"
 
 CONSOLIDATE_FOLDER = "consolidated"
 CONSOLIDATE_NAME = "consolidated.pth"
+CONSOLIDATE_BLT_NAME = "model.safetensors"
 
 CONFIG_NAME = "params.json"
 TRAIN_STATE_NAME = "train_state_{:05d}.json"

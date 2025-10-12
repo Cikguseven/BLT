@@ -170,3 +170,7 @@ jobs_parallel-copy/
 wandb/
 *.ipynb
 hf-weights/
+hf-blt-1b/
+
+
+dump-dir*/
