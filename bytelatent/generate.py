@@ -1,10 +1,11 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
+import logging
 import os
+import sys
 import time
 
 import torch
-from omegaconf import OmegaConf
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.attention.flex_attention import create_block_mask
@@ -25,15 +26,48 @@ from bytelatent.checkpoint import (
 )
 from bytelatent.config_parser import parse_args_to_pydantic_model
 from bytelatent.data.file_util import get_fs
+from bytelatent.data.patcher import Patcher
 from bytelatent.distributed import (
     DistributedArgs,
+    dist_max,
+    dist_min,
+    dist_sum,
     get_global_rank,
     setup_torch_distributed,
 )
 from bytelatent.model.blt import ByteLatentTransformer
-from bytelatent.tokenizers.abstract_tokenizer import Tokenizer
+from bytelatent.blt_tokenizers.abstract_tokenizer import Tokenizer
 from bytelatent.transformer import LMTransformer
 
+logger = logging.getLogger()
+
+def get_max_length(input_tokens: list[list[int]] | None) -> int:
+    # reduce max length prompt over all processes to have an equal number of call on each process with fsdp
+    if input_tokens is None:
+        max_length = 0
+    else:
+        max_length = max([len(t) for t in input_tokens])
+    if torch.distributed.is_initialized():
+        max_length = int(dist_max(max_length))
+    return max_length
+
+def get_min_length(input_tokens: list[list[int]] | None) -> int:
+    # reduce min length prompt over all processes to have an equal number of call on each process with fsdp
+    if input_tokens is None:
+        # TODO: Double check this change from int(1e9) is correct
+        min_length = 0
+    else:
+        min_length = min([len(t) for t in input_tokens])
+    if torch.distributed.is_initialized():
+        min_length = int(dist_min(min_length))
+    return min_length
+
+def get_generation_range(
+    prompt_tokens: list[list[int]] | None, max_gen_len: int
+) -> tuple[int, int]:
+    batch_min_prompt_length = get_min_length(prompt_tokens)
+    batch_max_prompt_length = get_max_length(prompt_tokens)
+    return batch_min_prompt_length, batch_max_prompt_length + max_gen_len
 
 def sample_top_p(probs: torch.Tensor, p: float) -> torch.Tensor:
     probs_sort, probs_idx = torch.sort(probs, dim=-1, descending=True)
@@ -44,7 +78,6 @@ def sample_top_p(probs: torch.Tensor, p: float) -> torch.Tensor:
     next_token = torch.gather(probs_idx, -1, next_token)
     return next_token
 
-
 def sample_top_k(probs, k):
     topk_value, _ = torch.topk(probs, k)  # batch_sz x topk
     min_value_top_k = topk_value[:, [-1]]
@@ -52,7 +85,6 @@ def sample_top_k(probs, k):
     probs.div_(probs.sum(dim=-1, keepdim=True))
     next_token = torch.multinomial(probs, num_samples=1)
     return next_token
-
 
 def sample_tokens(logits, temperature=0.0, top_p=None, top_k=None):
     shape = logits.shape
@@ -70,7 +102,6 @@ def sample_tokens(logits, temperature=0.0, top_p=None, top_k=None):
         next_token = torch.argmax(logits, dim=-1)
     return next_token.view(shape[:-1])
 
-
 def pack_prompts(prompts: list[int]):
     res = []
     lengths = []
@@ -82,7 +113,6 @@ def pack_prompts(prompts: list[int]):
     lengths = torch.tensor(lengths, dtype=torch.long)
     res = torch.cat(res)
     return res, lengths
-
 
 def batch_prompts(prompts, max_elements, lengths=None):
     batches = []
@@ -108,7 +138,6 @@ def batch_prompts(prompts, max_elements, lengths=None):
 
     return batches
 
-
 class KVCache(nn.Module):
     def __init__(self, bsz, seqlen, n_heads, head_dim, dtype, device):
         super().__init__()
@@ -128,13 +157,13 @@ class KVCache(nn.Module):
         self.v_cache.index_copy_(1, self.offset + tok_idx, v_val)
         return self.k_cache, self.v_cache
 
-
 class PackedCausalTransformerGenerator:
     def __init__(
         self,
         cfg: PackedCausalTransformerGeneratorArgs,
         model: nn.Module,
         tokenizer: Tokenizer,
+        patcher: Patcher = None,
     ):
         """
         This class wraps a causal transformer model with its corresponding tokenizer
@@ -179,6 +208,8 @@ class PackedCausalTransformerGenerator:
         self.current_doc_id, self.current_tok_id = None, None
         self.padded_doc_start = None
         self.prefill_mask = None
+
+        self.patcher = patcher
 
     def clear_cache(self, offset):
         for module in self.model.modules():
@@ -312,11 +343,119 @@ class PackedCausalTransformerGenerator:
         return out
 
     @torch.inference_mode()
+    def generate_nocache(
+        self,
+        prompts: list[str] | None,
+        *,
+        remove_prompts: bool = True,
+    ) -> list[list[int]]:
+        assert (
+            self.patcher.realtime_patching
+        ), "generate_nocache requires patcher.realtime_patching=True"
+        max_seqlen = (
+            self.max_tokens
+            if not hasattr(self.model, "max_seqlen")
+            else self.model.max_seqlen
+        )
+        max_prompt_len = self.max_prompt_len or min(
+            max_seqlen - self.max_gen_len, self.max_tokens - self.max_gen_len
+        )
+
+        self.model.eval()
+        if prompts is None:
+            # Unconditional generation: single sequence starting with BOS
+            prompt_tokens = [[self.tokenizer.bos_id]]
+            n_truncated_prompts = 0
+            total_truncated_prompts = 0
+        else:
+            prompt_tokens = [self.tokenizer.encode(t, add_eos=False) for t in prompts]
+            n_truncated_prompts = sum([max_prompt_len < len(t) for t in prompt_tokens])
+            total_truncated_prompts = dist_sum(n_truncated_prompts)
+
+            # Truncation
+            prompt_tokens = [
+                t if len(t) < max_prompt_len else t[len(t) - max_prompt_len :]
+                for t in prompt_tokens
+            ]
+
+        if total_truncated_prompts > 0:
+            logger.info(
+                f"There are {total_truncated_prompts} prompts that are truncated on the left, "
+                f"length greater than max_prompt_len = {max_prompt_len}, "
+                f"maximum prompt length = {get_max_length(prompt_tokens)} across all gpus."
+            )
+
+        # Compute generation window
+        start_pos, end_pos = get_generation_range(prompt_tokens, self.max_gen_len)
+        batch_size = len(prompt_tokens)
+        tokens = torch.full((batch_size, end_pos), self.tokenizer.pad_id).cuda().long()
+
+        # Copy inputs to tensor for generated tokens
+        for i, row_tokens in enumerate(prompt_tokens):
+            tokens[i, : len(row_tokens)] = torch.tensor(row_tokens, device=tokens.device).long()
+        input_text_mask = tokens != self.tokenizer.pad_id
+
+        for i, curr_pos in enumerate(range(start_pos, end_pos)):
+            current_tokens = tokens[:, :curr_pos]
+            patch_lengths, _ = self.patcher.patch(current_tokens, include_next_token=True)
+            logits = self.model(current_tokens, patch_lengths=patch_lengths)[:, -1]
+
+            if self.temperature > 0.0:
+                probs = torch.softmax(logits / self.temperature, dim=-1)
+                if self.top_p > 0.0:
+                    next_token = sample_top_p(probs, self.top_p)
+                elif self.top_k > 0:
+                    next_token = sample_top_k(probs, self.top_k)
+                else:
+                    next_token = torch.multinomial(probs, num_samples=1)
+            else:
+                next_token = torch.argmax(logits, dim=-1)
+
+            # Ensure shape [B] for assignment and where()
+            if next_token.ndim > 1:
+                next_token = next_token.squeeze(-1)
+
+            next_token = torch.where(
+                input_text_mask[:, curr_pos], tokens[:, curr_pos], next_token
+            )
+            tokens[:, curr_pos] = next_token
+
+        if remove_prompts:
+            generated_tokens = [
+                t[len(prompt_tokens[i]) : len(prompt_tokens[i]) + self.max_gen_len].tolist()
+                for i, t in enumerate(tokens)
+            ]
+        else:
+            generated_tokens = [
+                t[: len(prompt_tokens[i]) + self.max_gen_len].tolist()
+                for i, t in enumerate(tokens)
+            ]
+
+        # Add tracking of greedy predictions
+        greedy = []
+        loglikelihood = []
+        for i, row in enumerate(tokens):
+            if row.numel() > 1:
+                current_tokens = tokens[i : i + 1, : row.numel()]
+                patch_lengths, _ = self.patcher.patch(current_tokens, include_next_token=True)
+                logits = self.model(current_tokens, patch_lengths=patch_lengths)[:, :-1]
+                targets = row[1:].to(logits.device)
+                greedy.append((logits.argmax(dim=-1).squeeze(0) == targets).cpu())
+                loglikelihood.append(-F.cross_entropy(logits.squeeze(0), targets, reduction="none").cpu())
+            else:
+                greedy.append(torch.tensor([]))
+                loglikelihood.append(torch.tensor([]))
+
+        return generated_tokens, loglikelihood, greedy
+
+    @torch.inference_mode()
     def generate(self, prompts):
         # Tokenize
         prompts = [
             self.tokenizer.encode(p, add_bos=True, add_eos=False) for p in prompts
         ]
+
+        print
         # Truncate
         max_seqlen = (
             self.max_tokens
@@ -389,8 +528,11 @@ class PackedCausalTransformerGenerator:
                 loglikelihood.append(-F.cross_entropy(x, y, reduction="none").cpu())
                 greedy.append((x.argmax(dim=-1) == y).cpu())
 
-        return generation, loglikelihood, greedy
+        print(generation.shape, len(loglikelihood), len(greedy))
 
+        sys.exit(0)
+
+        return
 
 def load_consolidated_model_and_tokenizer(consolidated_path, init_distributed=False):
     if init_distributed:
@@ -420,7 +562,6 @@ def load_consolidated_model_and_tokenizer(consolidated_path, init_distributed=Fa
     for param in model.parameters():
         param.data = param.data.to(dtype=param_dtype)
     return model, tokenizer, train_args
-
 
 def main():
     # Load CLI arguments (overrides) and combine with a YAML config
@@ -467,7 +608,6 @@ def main():
         print(f"Generated Text: {gen}")
 
     print(f"\nTokens per second: {tokens_per_second:.2f}")
-
 
 if __name__ == "__main__":
     main()

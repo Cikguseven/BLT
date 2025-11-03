@@ -34,7 +34,7 @@ from bytelatent.metrics import LoggingArgs
 from bytelatent.model.blt import ByteLatentTransformerArgs
 from bytelatent.optim import OptimArgs
 from bytelatent.profiling import ProfilerArgs
-from bytelatent.tokenizers.build_tokenizer import TokenizerArgs
+from bytelatent.blt_tokenizers.build_tokenizer import TokenizerArgs
 from bytelatent.transformer import LMTransformerArgs
 
 logger = logging.getLogger()
@@ -278,8 +278,8 @@ class EvalArgs(BaseModel):
 
     prompts: list[str] | None = None
 
-    run_ppl: bool = True
-    run_tasks: bool = False
+    run_ppl: bool = False
+    run_tasks: bool = True
 
     generator: PackedCausalTransformerGeneratorArgs = (
         PackedCausalTransformerGeneratorArgs()

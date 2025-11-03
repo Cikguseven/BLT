@@ -7,7 +7,7 @@ from bytelatent.data.iterators.dev_iterators import (
 )
 from bytelatent.data.iterators.preprocess_iterator import PreprocessIterator
 from bytelatent.data.patcher import PatcherArgs, PatchingModeEnum
-from bytelatent.tokenizers.build_tokenizer import TokenizerArgs
+from bytelatent.blt_tokenizers.build_tokenizer import TokenizerArgs
 
 
 def test_preprocess_iter():

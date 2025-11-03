@@ -16,8 +16,8 @@ from bytelatent.entropy_model import load_entropy_model
 from bytelatent.generate import load_consolidated_model_and_tokenizer
 from bytelatent.generate_blt import generate_nocache
 from bytelatent.model.blt import ByteLatentTransformer
-from bytelatent.tokenizers.blt_tokenizer import BltTokenizer
-from bytelatent.tokenizers.build_tokenizer import TokenizerArgs
+from bytelatent.blt_tokenizers.blt_tokenizer import BltTokenizer
+from bytelatent.blt_tokenizers.build_tokenizer import TokenizerArgs
 from bytelatent.transformer import LMTransformer
 
 app = typer.Typer()

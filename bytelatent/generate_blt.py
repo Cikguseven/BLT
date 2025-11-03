@@ -17,7 +17,7 @@ from bytelatent.distributed import (
 )
 from bytelatent.generate import load_consolidated_model_and_tokenizer
 from bytelatent.model.blt import ByteLatentTransformer
-from bytelatent.tokenizers.blt_tokenizer import BltTokenizer
+from bytelatent.blt_tokenizers.blt_tokenizer import BltTokenizer
 
 logger = logging.getLogger()
 

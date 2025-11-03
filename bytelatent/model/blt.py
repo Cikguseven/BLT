@@ -19,7 +19,7 @@ from bytelatent.data.patcher import Patcher, PatcherArgs
 from bytelatent.model.latent_transformer import GlobalTransformer
 from bytelatent.model.local_models import LocalDecoder, LocalEncoder, LocalModelArgs
 from bytelatent.model.utils import downsample
-from bytelatent.tokenizers.constants import BOE_ID, BOS_ID, EOS_ID, OFFSET, PAD_ID
+from bytelatent.blt_tokenizers.constants import BOE_ID, BOS_ID, EOS_ID, OFFSET, PAD_ID
 
 
 def attention_flops_per_token(n_layers, seq_len, dim, causal):
@@ -275,7 +275,7 @@ def cross_attn_mask(
                 H=None,
                 Q_LEN=q_len,
                 KV_LEN=kv_len,
-                _compile=True,
+                _compile=False,
             )
             return block_mask
         else:

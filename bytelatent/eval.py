@@ -38,7 +38,6 @@ from bytelatent.data.iterators.sequence_iterator import (
 from bytelatent.data.patcher import PatcherArgs, PatchingModeEnum
 from bytelatent.distributed import (
     DistributedArgs,
-    dist_mean_dict,
     dist_sum,
     get_device_mesh,
     get_global_rank,
@@ -51,13 +50,12 @@ from bytelatent.generate import (
     load_consolidated_model_and_tokenizer,
 )
 from bytelatent.model.blt import ByteLatentTransformer
-from bytelatent.tokenizers.build_tokenizer import TokenizerArgs
+from bytelatent.blt_tokenizers.build_tokenizer import TokenizerArgs
 from bytelatent.transformer import LMTransformer
 
 EVAL_FOLDER_NAME = "{:010d}"
 
 logger = logging.getLogger()
-
 
 def all_dicts_same(dict_list):
     if not dict_list:  # Check if the list is empty
@@ -67,7 +65,6 @@ def all_dicts_same(dict_list):
     first_dict = dict_list[0]
     return all(d == first_dict for d in dict_list)
 
-
 class MockAccelerator:
     def gather(self, tensor):
         l = [torch.zeros_like(tensor) for _ in range(get_world_size())]
@@ -76,7 +73,6 @@ class MockAccelerator:
 
     def wait_for_everyone(self):
         torch.distributed.barrier()
-
 
 # Light wrapper around generator for lm-eval harness
 class EvalHarnessLM(LM):
@@ -115,7 +111,7 @@ class EvalHarnessLM(LM):
         max_gen_len = self.generator.max_gen_len
         # We temporarily lower max gen len
         self.generator.max_gen_len = 1
-        _, lls, greedy = self.generator.generate(inputs)
+        _, lls, greedy = self.generator.generate_nocache(inputs)
         results = []
         for p, ll, gr in zip(prompts, lls, greedy):
             p_len = len(
@@ -138,7 +134,6 @@ class EvalHarnessLM(LM):
         self.generator.max_gen_len = max_gen_len
 
         return results
-
 
 @torch.no_grad()
 def eval_ppl_on_path(
@@ -225,10 +220,13 @@ def eval_ppl_on_path(
         "bpb": all_total_loss / math.log(2) / all_n_bytes,
     }
 
-
 def launch_eval(eval_args: EvalArgs):
     assert eval_args.dump_dir is not None
     assert eval_args.ckpt_dir is not None
+
+    timestamp = datetime.now().strftime("%m%d-%H%M")
+    dump_dir = f"{eval_args.dump_dir}_{timestamp}"
+
     distributed_args = DistributedArgs()
     distributed_args.configure_world()
     if not torch.distributed.is_initialized():
@@ -263,8 +261,8 @@ def launch_eval(eval_args: EvalArgs):
                 "Did not find a consolidated checkpoint and consolidate_if_needed is False"
             )
 
-    fs.mkdirs(eval_args.dump_dir, exist_ok=True)
-    with fs.open(os.path.join(eval_args.dump_dir, "config.yaml"), "w") as f:
+    fs.mkdirs(dump_dir, exist_ok=True)
+    with fs.open(os.path.join(dump_dir, "config.yaml"), "w") as f:
         f.write(eval_args.model_dump_json())
 
     torch.distributed.barrier()
@@ -276,47 +274,55 @@ def launch_eval(eval_args: EvalArgs):
     model.eval()
     logger.info("Model loaded")
 
-    ppl_results = None
-    if eval_args.run_ppl:
-        assert eval_args.validation is not None
-        packing_args = PackingArgs(
-            batch_size=eval_args.validation.batch_size,
-            seq_len=train_cfg.data.seq_len,
-            max_length=train_cfg.data.max_encoder_seq_length,
-            pad_to_max_length=True,
-            enable_byte_ngrams=False,
-            pad_id=pad_id,
-            packing_mode=(
-                PackingMode.BYTES
-                if train_cfg.data.patcher_args.patching_mode == PatchingModeEnum.byte
-                else PackingMode.PATCHING
-            ),
-        )
-        if len(eval_args.validation.sources) > 0:
-            ppl_results = {}
-            logger.info("Starting PPL evaluation on validation sets")
-            for source in eval_args.validation.sources:
-                ppl_results[source] = eval_ppl_on_path(
-                    world_rank=world_rank,
-                    world_size=world_size,
-                    model=model,
-                    tokenizer_args=train_cfg.data.tokenizer_args,
-                    patcher_args=train_cfg.data.patcher_args,
-                    packing_args=packing_args,
-                    add_patches=train_cfg.data.add_patches,
-                    path=os.path.join(eval_args.validation.root_dir, source),
-                    max_n_docs=eval_args.validation.max_n_docs,
-                    max_n_batches=eval_args.validation.max_n_batches,
-                    arrow_batch_size=20,
-                    s3_profile=eval_args.s3_profile,
-                )
+    patcher_args = train_cfg.data.patcher_args.model_copy(deep=True)
+    patcher_args.realtime_patching = True
+    print("Loading entropy model and patcher")
+    patcher_args.entropy_model_checkpoint_dir = os.path.join(
+        "/home/kieron/blt/hf-weights", "entropy_model"
+    )
+    patcher = patcher_args.build()
+
+    # ppl_results = None
+    # if eval_args.run_ppl:
+    #     assert eval_args.validation is not None
+    #     packing_args = PackingArgs(
+    #         batch_size=eval_args.validation.batch_size,
+    #         seq_len=train_cfg.data.seq_len,
+    #         max_length=train_cfg.data.max_encoder_seq_length,
+    #         pad_to_max_length=True,
+    #         enable_byte_ngrams=False,
+    #         pad_id=pad_id,
+    #         packing_mode=(
+    #             PackingMode.BYTES
+    #             if train_cfg.data.patcher_args.patching_mode == PatchingModeEnum.byte
+    #             else PackingMode.PATCHING
+    #         ),
+    #     )
+    #     if len(eval_args.validation.sources) > 0:
+    #         ppl_results = {}
+    #         logger.info("Starting PPL evaluation on validation sets")
+    #         for source in eval_args.validation.sources:
+    #             ppl_results[source] = eval_ppl_on_path(
+    #                 world_rank=world_rank,
+    #                 world_size=world_size,
+    #                 model=model,
+    #                 tokenizer_args=train_cfg.data.tokenizer_args,
+    #                 patcher_args=train_cfg.data.patcher_args,
+    #                 packing_args=packing_args,
+    #                 add_patches=train_cfg.data.add_patches,
+    #                 path=os.path.join(eval_args.validation.root_dir, source),
+    #                 max_n_docs=eval_args.validation.max_n_docs,
+    #                 max_n_batches=eval_args.validation.max_n_batches,
+    #                 arrow_batch_size=20,
+    #                 s3_profile=eval_args.s3_profile,
+    #             )
 
     task_results = None
     if eval_args.run_tasks:
         assert eval_args.generator is not None
         assert eval_args.harness is not None
         generator = PackedCausalTransformerGenerator(
-            eval_args.generator, model, tokenizer
+            eval_args.generator, model, tokenizer, patcher=patcher
         )
         wrap = EvalHarnessLM(generator)
         # TODO: This needs to be checked/sped up
@@ -328,11 +334,11 @@ def launch_eval(eval_args: EvalArgs):
     # logging.info("Rank: %s Results: %s", world_rank, results)
 
     if get_global_rank() == 0:
-        with fs.open(os.path.join(eval_args.dump_dir, "results.json"), "w") as f:
+        with fs.open(os.path.join(dump_dir, "results.json"), "w") as f:
             f.write(json.dumps(results))
         logger.info(f"All evaluation results: {results}")
         if ppl_results is not None:
-            with fs.open(os.path.join(eval_args.dump_dir, "validation.json"), "w") as f:
+            with fs.open(os.path.join(dump_dir, "validation.json"), "w") as f:
                 f.write(json.dumps(ppl_results))
             logger.info(f"All validation results: {ppl_results}")
 
@@ -345,27 +351,21 @@ def launch_eval(eval_args: EvalArgs):
         }
         if eval_args.global_step is not None:
             timestamp["global_step"] = eval_args.global_step
-        print(
-            json.dumps(timestamp | results),
-            file=fs.open(metric_log_path, mode="a"),
-            flush=True,
-        )
+        with fs.open(metric_log_path, mode="a") as f:
+            f.write(json.dumps(timestamp | results) + "\n")
+            f.flush()
 
         val_log_path = os.path.join(
             eval_args.metric_log_dir, "metrics.validation.jsonl"
         )
         if ppl_results is not None:
-            print(
-                json.dumps(timestamp | ppl_results),
-                file=fs.open(val_log_path, mode="a"),
-                flush=True,
-            )
-
+            with fs.open(val_log_path, mode="a") as f:
+                f.write(json.dumps(timestamp | ppl_results) + "\n")
+                f.flush()
 
 def main():
-    eval_args = parse_args_to_pydantic_model(EvalArgs)
+    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="apps/main/configs/eval.yaml")
     launch_eval(eval_args)
-
 
 if __name__ == "__main__":
     main()
