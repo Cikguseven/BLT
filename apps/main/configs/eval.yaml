@@ -1,5 +1,5 @@
 # name: "debug_evals"
-ckpt_dir: "/home/kieron/blt/hf-weights/blt_7b"
+ckpt_dir: "/home/kieron/blt/hf-weights/blt_1b"
 dump_dir: "/home/kieron/blt/dump-dir"
 entropy_ckpt_dir: "/home/kieron/blt/hf-weights/entropy_model"
 generator:

@@ -105,7 +105,7 @@ def sample_tokens(logits, temperature=0.0, top_p=None, top_k=None):
 def pack_prompts(prompts: list[int]):
     res = []
     lengths = []
-    for i, p in enumerate(prompts):
+    for _, p in enumerate(prompts):
         p = torch.tensor(p, dtype=torch.long)
         l = p.size(0)
         res.append(p)

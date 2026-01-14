@@ -59,7 +59,6 @@ def find_and_sanitize_chunks(
     n_chunks = len(dataset_chunks)
 
     if n_chunks > world_size:
-        n_discard = n_chunks - world_size
         dataset_chunks = dataset_chunks[:world_size]
     else:
         assert (
@@ -156,7 +155,11 @@ class DataloaderArgs(BaseModel):
         self, rank: int, world_size: int
     ) -> dict[str, SequenceIterator]:
         sequence_packing_args = SequencePackingArgs(
-            output_seq_len=self.seq_len,
+            output_seq_len=(
+                self.seq_len + 1
+                if self.patcher_args.patching_mode == PatchingModeEnum.byte
+                else self.seq_len
+            ),
             buffer_size=self.buffer_size,
         )
         source_to_sequence_iterator: dict[str, SequenceIterator] = {}
@@ -233,6 +236,7 @@ class LMHarnessArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
     tasks: list[Any] | None = None
     num_fewshot: int | None = None
+    batch_size: int | str | None = None  # Add this line
     device: str | None = None
     use_cache: str | None = None
     cache_requests: bool = False
