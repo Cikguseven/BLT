@@ -1,6 +1,5 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 
-import logging
 import os
 import sys
 import time
@@ -29,45 +28,12 @@ from bytelatent.data.file_util import get_fs
 from bytelatent.data.patcher import Patcher
 from bytelatent.distributed import (
     DistributedArgs,
-    dist_max,
-    dist_min,
-    dist_sum,
     get_global_rank,
     setup_torch_distributed,
 )
 from bytelatent.model.blt import ByteLatentTransformer
 from bytelatent.blt_tokenizers.abstract_tokenizer import Tokenizer
 from bytelatent.transformer import LMTransformer
-
-logger = logging.getLogger()
-
-def get_max_length(input_tokens: list[list[int]] | None) -> int:
-    # reduce max length prompt over all processes to have an equal number of call on each process with fsdp
-    if input_tokens is None:
-        max_length = 0
-    else:
-        max_length = max([len(t) for t in input_tokens])
-    if torch.distributed.is_initialized():
-        max_length = int(dist_max(max_length))
-    return max_length
-
-def get_min_length(input_tokens: list[list[int]] | None) -> int:
-    # reduce min length prompt over all processes to have an equal number of call on each process with fsdp
-    if input_tokens is None:
-        # TODO: Double check this change from int(1e9) is correct
-        min_length = 0
-    else:
-        min_length = min([len(t) for t in input_tokens])
-    if torch.distributed.is_initialized():
-        min_length = int(dist_min(min_length))
-    return min_length
-
-def get_generation_range(
-    prompt_tokens: list[list[int]] | None, max_gen_len: int
-) -> tuple[int, int]:
-    batch_min_prompt_length = get_min_length(prompt_tokens)
-    batch_max_prompt_length = get_max_length(prompt_tokens)
-    return batch_min_prompt_length, batch_max_prompt_length + max_gen_len
 
 def sample_top_p(probs: torch.Tensor, p: float) -> torch.Tensor:
     probs_sort, probs_idx = torch.sort(probs, dim=-1, descending=True)
@@ -343,119 +309,12 @@ class PackedCausalTransformerGenerator:
         return out
 
     @torch.inference_mode()
-    def generate_nocache(
-        self,
-        prompts: list[str] | None,
-        *,
-        remove_prompts: bool = True,
-    ) -> list[list[int]]:
-        assert (
-            self.patcher.realtime_patching
-        ), "generate_nocache requires patcher.realtime_patching=True"
-        max_seqlen = (
-            self.max_tokens
-            if not hasattr(self.model, "max_seqlen")
-            else self.model.max_seqlen
-        )
-        max_prompt_len = self.max_prompt_len or min(
-            max_seqlen - self.max_gen_len, self.max_tokens - self.max_gen_len
-        )
-
-        self.model.eval()
-        if prompts is None:
-            # Unconditional generation: single sequence starting with BOS
-            prompt_tokens = [[self.tokenizer.bos_id]]
-            n_truncated_prompts = 0
-            total_truncated_prompts = 0
-        else:
-            prompt_tokens = [self.tokenizer.encode(t, add_eos=False) for t in prompts]
-            n_truncated_prompts = sum([max_prompt_len < len(t) for t in prompt_tokens])
-            total_truncated_prompts = dist_sum(n_truncated_prompts)
-
-            # Truncation
-            prompt_tokens = [
-                t if len(t) < max_prompt_len else t[len(t) - max_prompt_len :]
-                for t in prompt_tokens
-            ]
-
-        if total_truncated_prompts > 0:
-            logger.info(
-                f"There are {total_truncated_prompts} prompts that are truncated on the left, "
-                f"length greater than max_prompt_len = {max_prompt_len}, "
-                f"maximum prompt length = {get_max_length(prompt_tokens)} across all gpus."
-            )
-
-        # Compute generation window
-        start_pos, end_pos = get_generation_range(prompt_tokens, self.max_gen_len)
-        batch_size = len(prompt_tokens)
-        tokens = torch.full((batch_size, end_pos), self.tokenizer.pad_id).cuda().long()
-
-        # Copy inputs to tensor for generated tokens
-        for i, row_tokens in enumerate(prompt_tokens):
-            tokens[i, : len(row_tokens)] = torch.tensor(row_tokens, device=tokens.device).long()
-        input_text_mask = tokens != self.tokenizer.pad_id
-
-        for i, curr_pos in enumerate(range(start_pos, end_pos)):
-            current_tokens = tokens[:, :curr_pos]
-            patch_lengths, _ = self.patcher.patch(current_tokens, include_next_token=True)
-            logits = self.model(current_tokens, patch_lengths=patch_lengths)[:, -1]
-
-            if self.temperature > 0.0:
-                probs = torch.softmax(logits / self.temperature, dim=-1)
-                if self.top_p > 0.0:
-                    next_token = sample_top_p(probs, self.top_p)
-                elif self.top_k > 0:
-                    next_token = sample_top_k(probs, self.top_k)
-                else:
-                    next_token = torch.multinomial(probs, num_samples=1)
-            else:
-                next_token = torch.argmax(logits, dim=-1)
-
-            # Ensure shape [B] for assignment and where()
-            if next_token.ndim > 1:
-                next_token = next_token.squeeze(-1)
-
-            next_token = torch.where(
-                input_text_mask[:, curr_pos], tokens[:, curr_pos], next_token
-            )
-            tokens[:, curr_pos] = next_token
-
-        if remove_prompts:
-            generated_tokens = [
-                t[len(prompt_tokens[i]) : len(prompt_tokens[i]) + self.max_gen_len].tolist()
-                for i, t in enumerate(tokens)
-            ]
-        else:
-            generated_tokens = [
-                t[: len(prompt_tokens[i]) + self.max_gen_len].tolist()
-                for i, t in enumerate(tokens)
-            ]
-
-        # Add tracking of greedy predictions
-        greedy = []
-        loglikelihood = []
-        for i, row in enumerate(tokens):
-            if row.numel() > 1:
-                current_tokens = tokens[i : i + 1, : row.numel()]
-                patch_lengths, _ = self.patcher.patch(current_tokens, include_next_token=True)
-                logits = self.model(current_tokens, patch_lengths=patch_lengths)[:, :-1]
-                targets = row[1:].to(logits.device)
-                greedy.append((logits.argmax(dim=-1).squeeze(0) == targets).cpu())
-                loglikelihood.append(-F.cross_entropy(logits.squeeze(0), targets, reduction="none").cpu())
-            else:
-                greedy.append(torch.tensor([]))
-                loglikelihood.append(torch.tensor([]))
-
-        return generated_tokens, loglikelihood, greedy
-
-    @torch.inference_mode()
     def generate(self, prompts):
         # Tokenize
         prompts = [
             self.tokenizer.encode(p, add_bos=True, add_eos=False) for p in prompts
         ]
 
-        print
         # Truncate
         max_seqlen = (
             self.max_tokens
@@ -528,7 +387,7 @@ class PackedCausalTransformerGenerator:
                 loglikelihood.append(-F.cross_entropy(x, y, reduction="none").cpu())
                 greedy.append((x.argmax(dim=-1) == y).cpu())
 
-        print(generation.shape, len(loglikelihood), len(greedy))
+        print(generation, loglikelihood, greedy)
 
         sys.exit(0)
 

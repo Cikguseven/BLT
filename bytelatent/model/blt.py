@@ -275,7 +275,7 @@ def cross_attn_mask(
                 H=None,
                 Q_LEN=q_len,
                 KV_LEN=kv_len,
-                _compile=False,
+                _compile=True,
             )
             return block_mask
         else:
