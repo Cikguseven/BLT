@@ -25,7 +25,6 @@ from bytelatent.checkpoint import (
 )
 from bytelatent.config_parser import parse_args_to_pydantic_model
 from bytelatent.data.file_util import get_fs
-from bytelatent.data.patcher import Patcher
 from bytelatent.distributed import (
     DistributedArgs,
     get_global_rank,
@@ -129,7 +128,6 @@ class PackedCausalTransformerGenerator:
         cfg: PackedCausalTransformerGeneratorArgs,
         model: nn.Module,
         tokenizer: Tokenizer,
-        patcher: Patcher = None,
     ):
         """
         This class wraps a causal transformer model with its corresponding tokenizer
@@ -174,8 +172,6 @@ class PackedCausalTransformerGenerator:
         self.current_doc_id, self.current_tok_id = None, None
         self.padded_doc_start = None
         self.prefill_mask = None
-
-        self.patcher = patcher
 
     def clear_cache(self, offset):
         for module in self.model.modules():
@@ -387,7 +383,7 @@ class PackedCausalTransformerGenerator:
                 loglikelihood.append(-F.cross_entropy(x, y, reduction="none").cpu())
                 greedy.append((x.argmax(dim=-1) == y).cpu())
 
-        print(generation, loglikelihood, greedy)
+        return generation, loglikelihood, greedy
 
         sys.exit(0)
 
