@@ -1,7 +1,7 @@
 # name: "debug_evals"
-ckpt_dir: "/home/kieron/blt/hf-weights/blt_7b"
-dump_dir: "/home/kieron/blt/dump-dir"
-entropy_ckpt_dir: "/home/kieron/blt/hf-weights/entropy_model"
+ckpt_dir: "/home/kieron/fyp/blt/hf-weights/blt_1b"
+dump_dir: "/home/kieron/fyp/blt/dump-dir"
+entropy_ckpt_dir: "/home/kieron/fyp/blt/hf-weights/entropy_model"
 generator:
   max_tokens: 4096
   dtype: bf16

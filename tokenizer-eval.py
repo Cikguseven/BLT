@@ -16,16 +16,63 @@ DIR_PATH = Path("/home/kieron/fyp/data_flores-plus_devtest")
 
 VALID_LANGS = [
     "eng_Latn",
-    "ind_Latn",
-    "fil_Latn",
+    "deu_Latn",
+    "fra_Latn",
+    "ita_Latn",
+    "rus_Cyrl",
+    "spa_Latn",
+    "jpn_Jpan",
+    "pol_Latn",
+    "por_Latn",
     "vie_Latn",
-    "zsm_Latn",
-    "khm_Khmr",
-    "lao_Laoo",
-    "mya_Mymr",
+    "tur_Latn",
+    "nld_Latn",
+    "ind_Latn",
+    "arb_Arab",
+    "ces_Latn",
+    "pes_Arab",
+    "ell_Grek",
+    "cmn_Hans",
+    "hin_Deva",
+    "kor_Hang",
     "tha_Thai",
+    "heb_Hebr",
+    "ben_Beng",
     "tam_Taml",
-    "cmn_Hans"
+    "kat_Geor",
+    "mar_Deva",
+    "fil_Latn",
+    "tel_Telu",
+    "nob_Latn",
+    "azj_Latn",
+    "swe_Latn",
+    "ron_Latn",
+    "ukr_Cyrl",
+    "hun_Latn",
+    "dan_Latn",
+    "fin_Latn",
+    "bul_Cyrl",
+    "slk_Latn",
+    "cat_Latn",
+    "zsm_Latn",
+    "urd_Arab",
+    "bel_Cyrl",
+    "eus_Latn",
+    "tgk_Cyrl",
+    "sot_Latn",
+    "yor_Latn",
+    "swh_Latn",
+    "ekk_Latn",
+    "lvs_Latn",
+    "glg_Latn",
+    "cym_Latn",
+    "als_Latn",
+    "mkd_Cyrl",
+    "mal_Mlym",
+    "mya_Mymr",
+    "guj_Gujr",
+    "afr_Latn",
+    "uzn_Latn",
 ]
 
 def read_lines(fp: Path, max_lines: int) -> List[str]:
@@ -109,16 +156,16 @@ class ByteTokenizer:
 
 
 def main() -> None:
-    myte_tokenizer = MyT5Tokenizer()
-    byte_tokenizer = ByteTokenizer()
+    # myte_tokenizer = MyT5Tokenizer()
+    # byte_tokenizer = ByteTokenizer()
 
-    parity_aware_bpe_tokenizer = Tokenizer.from_file("/home/kieron/fyp/parity_aware_bpe/45k_parity-aware_SEA_1m/tokenizer.json")
-    byte_level_bpe_tokenizer = Tokenizer.from_file("/home/kieron/fyp/parity_aware_bpe/45k_byte-level_SEA_1m/tokenizer.json")
-    char_level_bpe_tokenizer = Tokenizer.from_file("/home/kieron/fyp/parity_aware_bpe/45k_char-level_SEA_1m/tokenizer.json")
+    parity_aware_bpe_tokenizer = Tokenizer.from_file("/home/kieron/fyp/parity_aware_bpe/128k_base_60lang_1m/tokenizer.json")
+    # byte_level_bpe_tokenizer = Tokenizer.from_file("/home/kieron/fyp/parity_aware_bpe/45k_byte-level_SEA_1m/tokenizer.json")
+    # char_level_bpe_tokenizer = Tokenizer.from_file("/home/kieron/fyp/parity_aware_bpe/45k_char-level_SEA_1m/tokenizer.json")
 
-    entropy_model_dir = Path("/home/kieron/fyp/blt/hf-weights/entropy_model")
-    checkpoint_path = Path("/home/kieron/fyp/blt/hf-weights/blt_1b")
-    _, blt_tokenizer, _ = load_consolidated_model_and_tokenizer(checkpoint_path)
+    # entropy_model_dir = Path("/home/kieron/fyp/blt/hf-weights/entropy_model")
+    # checkpoint_path = Path("/home/kieron/fyp/blt/hf-weights/blt_1b")
+    # _, blt_tokenizer, _ = load_consolidated_model_and_tokenizer(checkpoint_path)
 
     # Metrics
     token_totals_myte: Dict[str, int] = {}
@@ -160,36 +207,35 @@ def main() -> None:
         print(f"Processing language: {code}")
         lines = read_lines(entry, LINES)
 
-        total_tokens = count_tokens(myte_tokenizer, lines)
-        total_bytes = count_tokens(byte_tokenizer, lines)
+        # total_tokens = count_tokens(myte_tokenizer, lines)
+        # total_bytes = count_tokens(byte_tokenizer, lines)
         total_SEA_parity = count_parity_tokens(parity_aware_bpe_tokenizer, lines)
-        total_byte_level_SEA_parity = count_parity_tokens(byte_level_bpe_tokenizer, lines)
-        total_char_level_SEA_parity = count_parity_tokens(char_level_bpe_tokenizer, lines)
-        total_blt_patches = count_blt_patches(blt_tokenizer, entropy_model_dir, lines)
+        # total_byte_level_SEA_parity = count_parity_tokens(byte_level_bpe_tokenizer, lines)
+        # total_char_level_SEA_parity = count_parity_tokens(char_level_bpe_tokenizer, lines)
+        # total_blt_patches = count_blt_patches(blt_tokenizer, entropy_model_dir, lines)
 
-        output_lines.append(f"Processed {code}: MYTE tokens={total_tokens}, UTF-8 bytes={total_bytes}, Parity-Aware BPE tokens={total_SEA_parity}, Byte-Level BPE tokens={total_byte_level_SEA_parity}, Char-Level BPE tokens={total_char_level_SEA_parity}, BLT patches={total_blt_patches}")
+        # output_lines.append(f"Processed {code}: MYTE tokens={total_tokens}, UTF-8 bytes={total_bytes}, Parity-Aware BPE tokens={total_SEA_parity}, Byte-Level BPE tokens={total_byte_level_SEA_parity}, Char-Level BPE tokens={total_char_level_SEA_parity}, BLT patches={total_blt_patches}")
 
-        if total_tokens == 0 and total_bytes == 0:
-            continue
+        output_lines.append(f"Processed {code}: Parity-Aware BPE tokens={total_SEA_parity}")
 
-        if total_tokens > 0:
-            token_totals_myte[code] = total_tokens
-            avg_tokens_myte[code] = total_tokens / LINES
-        if total_bytes > 0:
-            token_totals_bytes[code] = total_bytes
-            avg_tokens_bytes[code] = total_bytes / LINES
+        # if total_tokens > 0:
+        #     token_totals_myte[code] = total_tokens
+        #     avg_tokens_myte[code] = total_tokens / LINES
+        # if total_bytes > 0:
+        #     token_totals_bytes[code] = total_bytes
+        #     avg_tokens_bytes[code] = total_bytes / LINES
         if total_SEA_parity > 0:
             SEA_token_totals_parity[code] = total_SEA_parity
             SEA_avg_tokens_parity[code] = total_SEA_parity / LINES
-        if total_byte_level_SEA_parity > 0:
-            byte_level_SEA_token_totals_parity[code] = total_byte_level_SEA_parity
-            byte_level_SEA_avg_tokens_parity[code] = total_byte_level_SEA_parity / LINES
-        if total_char_level_SEA_parity > 0:
-            char_level_SEA_token_totals_parity[code] = total_char_level_SEA_parity
-            char_level_SEA_avg_tokens_parity[code] = total_char_level_SEA_parity / LINES
-        if total_blt_patches > 0:
-            blt_token_patches[code] = total_blt_patches
-            blt_avg_patches[code] = total_blt_patches / LINES
+        # if total_byte_level_SEA_parity > 0:
+        #     byte_level_SEA_token_totals_parity[code] = total_byte_level_SEA_parity
+        #     byte_level_SEA_avg_tokens_parity[code] = total_byte_level_SEA_parity / LINES
+        # if total_char_level_SEA_parity > 0:
+        #     char_level_SEA_token_totals_parity[code] = total_char_level_SEA_parity
+        #     char_level_SEA_avg_tokens_parity[code] = total_char_level_SEA_parity / LINES
+        # if total_blt_patches > 0:
+        #     blt_token_patches[code] = total_blt_patches
+        #     blt_avg_patches[code] = total_blt_patches / LINES
 
     # Use correct English key
     eng_tokens = token_totals_myte.get("eng_Latn") or token_totals_myte.get("eng")
@@ -318,12 +364,12 @@ def main() -> None:
     output_lines.append(f"BLT Avg Parity (vs eng): {avg_blt_parity_all:.6f}")
 
     output_lines.append("=== Worst-case Parity (lower is better) ===")
-    output_lines.append(f"UTF-8 Worst Parity (vs eng): {max(token_totals_bytes[lang] / eng_bytes for lang in token_totals_bytes)}")
-    output_lines.append(f"MYTE Worst Parity (vs eng): {max(token_totals_myte[lang] / eng_tokens for lang in token_totals_myte)}")
+    # output_lines.append(f"UTF-8 Worst Parity (vs eng): {max(token_totals_bytes[lang] / eng_bytes for lang in token_totals_bytes)}")
+    # output_lines.append(f"MYTE Worst Parity (vs eng): {max(token_totals_myte[lang] / eng_tokens for lang in token_totals_myte)}")
     output_lines.append(f"Parity-Aware BPE Worst Parity (vs eng): {max(SEA_token_totals_parity[lang] / eng_SEA_parity for lang in SEA_token_totals_parity)}")
-    output_lines.append(f"Byte-Level BPE Worst Parity (vs eng): {max(byte_level_SEA_token_totals_parity[lang] / eng_byte_level_SEA_parity for lang in byte_level_SEA_token_totals_parity)}")
-    output_lines.append(f"Char-Level BPE Worst Parity (vs eng): {max(char_level_SEA_token_totals_parity[lang] / eng_char_level_SEA_parity for lang in char_level_SEA_token_totals_parity)}")
-    output_lines.append(f"BLT Worst Parity (vs eng): {max(blt_token_patches[lang] / eng_blt_patches for lang in blt_token_patches)}")
+    # output_lines.append(f"Byte-Level BPE Worst Parity (vs eng): {max(byte_level_SEA_token_totals_parity[lang] / eng_byte_level_SEA_parity for lang in byte_level_SEA_token_totals_parity)}")
+    # output_lines.append(f"Char-Level BPE Worst Parity (vs eng): {max(char_level_SEA_token_totals_parity[lang] / eng_char_level_SEA_parity for lang in char_level_SEA_token_totals_parity)}")
+    # output_lines.append(f"BLT Worst Parity (vs eng): {max(blt_token_patches[lang] / eng_blt_patches for lang in blt_token_patches)}")
 
     output_lines.append("=== Average tokens per Line (lower is better) ===")
     output_lines.append(f"UTF-8 Avg Tokens/Line: {avg_utf8_len_per_line_all:.6f}")

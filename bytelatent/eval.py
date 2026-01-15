@@ -4,7 +4,10 @@ import json
 import logging
 import math
 import os
+import sys
 from datetime import datetime
+
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 import torch
 from lm_eval import simple_evaluate
@@ -348,7 +351,7 @@ def launch_eval(eval_args: EvalArgs):
         #         f.flush()
 
 def main():
-    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="apps/main/configs/eval.yaml")
+    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="fyp/blt/apps/main/configs/eval.yaml")
     launch_eval(eval_args)
 
 if __name__ == "__main__":
