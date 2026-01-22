@@ -218,7 +218,7 @@ def launch_eval(eval_args: EvalArgs):
     assert eval_args.dump_dir is not None
     assert eval_args.ckpt_dir is not None
 
-    timestamp = datetime.now().strftime("%m%d-%H%M")
+    timestamp = datetime.now().strftime("%b%d-%H%M")
     dump_dir = f"{eval_args.dump_dir}_{timestamp}"
 
     distributed_args = DistributedArgs()
