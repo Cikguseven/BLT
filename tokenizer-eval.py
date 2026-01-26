@@ -7,7 +7,6 @@ from typing import Dict, List, Any
 
 import torch
 
-# === TOKENIZER CONFIGURATION ===
 # Set to True to enable testing for each tokenizer
 TOKENIZERS_TO_TEST = {
     "utf8": False,
@@ -16,10 +15,117 @@ TOKENIZERS_TO_TEST = {
     "blt": False,
 }
 
-LINES = 1012
-EVAL_DIR = Path("/home/kieron/fyp/data/data_flores-plus_devtest")
+# Tokenizer file paths
+MYTE_DECOMPOSE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/decompose_map.json"
+# MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/merge_map.json"
+MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/mappings_decomposed_filtered/morf_map_wiki_4096.json"
+PARITY_AWARE_BPE_PATH = "/home/kieron/fyp/parity_aware_bpe/45k_parity-aware_SEA_1m/tokenizer.json"
+BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/hf-weights/entropy_model"
+BLT_CHECKPOINT_PATH = "/home/kieron/fyp/blt/hf-weights/blt_1b"
 
-LANGS_60 = [
+LINES = 1012
+EVAL_DIR = Path("/home/kieron/fyp/data/flores-plus_dev_devtest/")
+
+MYTE_96 = [
+    "afr_Latn",
+    "amh_Ethi",
+    "arb_Arab",
+    "azj_Latn",
+    "bel_Cyrl",
+    "bul_Cyrl",
+    "ben_Beng",
+    "cat_Latn",
+    "ceb_Latn",
+    "ces_Latn",
+    "cym_Latn",
+    "dan_Latn",
+    "deu_Latn",
+    "ell_Grek",
+    "eng_Latn",
+    "epo_Latn",
+    "spa_Latn",
+    "ekk_Latn",
+    "eus_Latn",
+    "pes_Arab",
+    "fin_Latn",
+    "fao_Latn",
+    "fra_Latn",
+    "gle_Latn",
+    "gla_Latn",
+    "glg_Latn",
+    "guj_Gujr",
+    "hau_Latn",
+    "heb_Hebr",
+    "hin_Deva",
+    "hat_Latn",
+    "hun_Latn",
+    "hye_Armn",
+    "ind_Latn",
+    "ibo_Latn",
+    "isl_Latn",
+    "ita_Latn",
+    "jpn_Jpan",
+    "jav_Latn",
+    "kat_Geor",
+    "kaz_Cyrl",
+    "khm_Khmr",
+    "kan_Knda",
+    "kor_Hang",
+    "kmr_Latn",
+    "kir_Cyrl",
+    "ltz_Latn",
+    "lao_Laoo",
+    "lit_Latn",
+    "lvs_Latn",
+    "plt_Latn",
+    "mri_Latn",
+    "mkd_Cyrl",
+    "mal_Mlym",
+    "khk_Cyrl",
+    "mar_Deva",
+    "zsm_Latn",
+    "mlt_Latn",
+    "mya_Mymr",
+    "npi_Deva",
+    "nld_Latn",
+    "nob_Latn",
+    "nya_Latn",
+    "pan_Guru",
+    "pol_Latn",
+    "pbt_Arab",
+    "por_Latn",
+    "ron_Latn",
+    "rus_Cyrl",
+    "snd_Arab",
+    "sin_Sinh",
+    "slk_Latn",
+    "slv_Latn",
+    "smo_Latn",
+    "sna_Latn",
+    "som_Latn",
+    "als_Latn",
+    "srp_Cyrl",
+    "sot_Latn",
+    "sun_Latn",
+    "swe_Latn",
+    "swh_Latn",
+    "tam_Taml",
+    "tel_Telu",
+    "tgk_Cyrl",
+    "tha_Thai",
+    "tur_Latn",
+    "ukr_Cyrl",
+    "urd_Arab",
+    "uzn_Latn",
+    "vie_Latn",
+    "xho_Latn",
+    "ydd_Hebr",
+    "yor_Latn",
+    "cmn_Hans",
+    "zul_Latn",
+]
+
+PA_BPE_60 = [
     "eng_Latn",
     "deu_Latn",
     "fra_Latn",
@@ -80,7 +186,7 @@ LANGS_60 = [
     "uzn_Latn",
 ]
 
-LANGS_30 = [
+PA_BPE_30 = [
     "eng_Latn",
     "deu_Latn",
     "fra_Latn",
@@ -113,7 +219,7 @@ LANGS_30 = [
     "azj_Latn",
 ]
 
-SEA_LANGS = [
+SEA_11 = [
     "eng_Latn",
     "ind_Latn",
     "fil_Latn",
@@ -124,10 +230,10 @@ SEA_LANGS = [
     "mya_Mymr",
     "tha_Thai",
     "tam_Taml",
-    "cmn_Hans"
+    "cmn_Hans",
 ]
 
-VALID_LANGS = LANGS_30
+VALID_LANGS = MYTE_96
 
 # Simple byte tokenizer that segments text into UTF-8 bytes
 class ByteTokenizer:
@@ -212,7 +318,7 @@ def main() -> None:
 
     print(f"Enabled tokenizers: {', '.join(sorted(enabled))}")
 
-    # --- Load only what we need ---
+    # Load only used tokenizers
     myte_tokenizer = None
     byte_tokenizer = None
     parity_aware_bpe_tokenizer = None
@@ -224,21 +330,23 @@ def main() -> None:
 
     if "myte" in enabled:
         from myte.src.myt5.myt5_tokenizer import MyT5Tokenizer
-        # myte_tokenizer = MyT5Tokenizer()
-        myte_tokenizer = MyT5Tokenizer(decompose_map="/home/kieron/fyp/myte/byte_maps/decompose_map.json", merge_map="fyp/myte/mappings_decomposed_filtered/morf_map_4096.json")
+        myte_tokenizer = MyT5Tokenizer(
+            decompose_map=MYTE_DECOMPOSE_MAP_PATH,
+            merge_map=MYTE_MERGE_MAP_PATH
+        )
 
     if "parity_aware_bpe" in enabled:
         from tokenizers import Tokenizer
         parity_aware_bpe_tokenizer = Tokenizer.from_file(
-            "/home/kieron/fyp/parity_aware_bpe/128k_base_30lang_unbalanced_100k/tokenizer.json"
+            PARITY_AWARE_BPE_PATH
         )
 
     if "blt" in enabled:
         from bytelatent.generate import load_consolidated_model_and_tokenizer
         from bytelatent.data.patcher import PatcherArgs, PatchingModeEnum
 
-        entropy_model_dir = Path("/home/kieron/fyp/blt/hf-weights/entropy_model")
-        checkpoint_path = Path("/home/kieron/fyp/blt/hf-weights/blt_1b")
+        entropy_model_dir = Path(BLT_ENTROPY_MODEL_DIR)
+        checkpoint_path = Path(BLT_CHECKPOINT_PATH)
 
         print("Loading BLT model...")
         _, blt_tokenizer, _ = load_consolidated_model_and_tokenizer(checkpoint_path)
@@ -253,7 +361,7 @@ def main() -> None:
         )
         blt_patcher = patcher_args.build()
 
-    # --- Metrics dicts (only for enabled tokenizers) ---
+    # Metrics dicts
     tokens_per_lang_bytes: Dict[str, int] = {}
     avg_tokens_bytes: Dict[str, float] = {}
     avg_parity_bytes: Dict[str, float] = {}
@@ -377,7 +485,7 @@ def main() -> None:
             output_lines.append(", ".join(parts))
 
     # Gini coefficients (only for enabled tokenizers)
-    output_lines.append("\n=== Gini Coefficients (across languages) ===")
+    output_lines.append("\n--- Gini Coefficients (across languages) ---")
     gini_parts: List[str] = []
     if "utf8" in enabled:
         gini_parts.append(f"UTF-8: {gini(list(avg_tokens_bytes.values())):.3f}")
@@ -396,7 +504,7 @@ def main() -> None:
         return (1 / x) if x > 0 else 0.0
 
     # Global averages across languages (only for enabled)
-    output_lines.append("\n=== Average tokens per line (lower is better) ===")
+    output_lines.append("\n--- Average tokens per line (lower is better) ---")
     if "utf8" in enabled:
         output_lines.append(f"UTF-8: {_combined_avg(avg_tokens_bytes):.2f}")
     if "myte" in enabled:
@@ -406,7 +514,7 @@ def main() -> None:
     if "blt" in enabled:
         output_lines.append(f"BLT: {_combined_avg(avg_tokens_blt):.2f}")
 
-    output_lines.append("\n=== Compression Rates across all languages (higher is better) ===")
+    output_lines.append("\n--- Compression Rates across all languages (higher is better) ---")
     if "utf8" in enabled:
         output_lines.append(f"UTF-8: {_inv(_combined_avg(avg_tokens_bytes)):.4f}")
     if "myte" in enabled:
@@ -416,7 +524,7 @@ def main() -> None:
     if "blt" in enabled:
         output_lines.append(f"BLT: {_inv(_combined_avg(avg_tokens_blt)):.4f}")
 
-    output_lines.append("\n=== Average Parity vs English (lower is better) ===")
+    output_lines.append("\n--- Average Parity vs English (lower is better) ---")
     if "utf8" in enabled:
         output_lines.append(f"UTF-8: {_combined_avg(avg_parity_bytes):.2f}" if eng_bytes else "UTF-8: English missing")
     if "myte" in enabled:
@@ -426,7 +534,7 @@ def main() -> None:
     if "blt" in enabled:
         output_lines.append(f"BLT: {_combined_avg(avg_parity_blt):.2f}" if eng_blt else "BLT: English missing")
 
-    output_lines.append("\n=== Worst-case Parity vs English (lower is better) ===")
+    output_lines.append("\n--- Worst-case Parity vs English (lower is better) ---")
     if "utf8" in enabled:
         output_lines.append(f"UTF-8: {max(avg_parity_bytes.values()):.2f}" if eng_bytes and avg_parity_bytes else "UTF-8: English missing")
     if "myte" in enabled:

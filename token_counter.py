@@ -68,5 +68,5 @@ def main(
 if __name__ == "__main__":
     main(
         model_path="/home/kieron/fyp/parity_aware_bpe/45k_parity-aware_SEA_1m/tokenizer.json",
-        folder="/home/kieron/fyp/data_mc4_60lang_100000_sentences"
+        folder="/home/kieron/fyp/data/mc4_30lang_5000000_sentences"
     )
