@@ -2,7 +2,7 @@
 # Evals can be activated by uncommenting its config
 # python -m launchers.stool config=apps/main/configs/debug.yaml nodes=8 account=fair_amaia_cw_codegen qos=lowest
 
-dump_dir: /tmp/blt-entropy
+dump_dir: /home/kieron/fyp/blt/tmp/blt-entropy
 name: "debug"
 steps: 100_000
 max_steps: null
@@ -24,11 +24,10 @@ distributed:
 train_entropy_model: true
 model: null
 entropy_model:
-  dim: 768
+  dim: 512
   n_layers: 14
-  n_heads: 12
+  n_heads: 8
   max_seqlen: 8192
-  # vocab_size: -1
   vocab_size: 260
   ffn_dim_multiplier: 1.0
   sliding_window: 512
@@ -36,10 +35,10 @@ entropy_model:
   attn_impl: "xformers"
 
 data:
-  root_dir: ???
+  root_dir: /home/kieron/fyp/data/mc4_SEA_1000000_sentences # Point to the folder containing your .jsonl files
   sources:
-    dclm_baseline_1.0: 1.0
-  batch_size: 2
+    combined: 1.0
+  batch_size: 32
   prefetch_size: 64
   # seqlen is in terms of patches and
   # max_encoder_seq_length is in terms of bytes.
@@ -47,7 +46,8 @@ data:
   seq_len: 8192
   max_encoder_seq_length: 8192
   load_async: true
-  preprocess_dir: ???
+  preprocess_dir: null
+  file_format: json
   # We don't need patches for this model
   add_patches: false
   patcher_args:
@@ -56,20 +56,23 @@ data:
     patching_mode: byte
   tokenizer_args:
     name: blt
+    path: null  # Byte tokenizer, no path needed
 
 profiling:
   run: false
 
 checkpoint:
+  # path: /home/kieron/fyp/blt/tmp/blt-entropy/checkpoints  # Will be auto-set if not specified
+  # init_ckpt_path: /home/kieron/fyp/blt/tmp/blt-entropy/checkpoints/0000020000
   dump:
-    every: 500
-    keep: 3
+    every: 10000
+    keep: 2
   eval:
-    every: 1000
+    every: 5000
     keep: -1
 
 logging:
-  freq: 10
+  freq: 100
 
-eval_on_gpus: 8
+eval_on_gpus: 4
 eval: null

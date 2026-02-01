@@ -83,7 +83,11 @@ def parse_args_to_pydantic_model(
     cli_args: DictConfig | None = None,
     instantiate_default_cls: bool = True,
 ) -> T:
-    cli_args = OmegaConf.load(cli_args)
+    if cli_args is None:
+        cli_args = OmegaConf.from_cli()
+    elif not isinstance(cli_args, DictConfig):
+        cli_args = OmegaConf.load(cli_args)
+
     if instantiate_default_cls:
         default_cfg = OmegaConf.create(args_cls().model_dump())
     else:

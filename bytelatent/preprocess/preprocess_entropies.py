@@ -35,6 +35,9 @@ def get_id_key(doc: dict) -> int:
         return "url"
     elif "id" in doc:
         return "id"
+    elif "text" in doc:
+        # Fallback: use text as ID if no other ID field exists
+        return "text"
     else:
         raise ValueError(f"Could not find a id key from: {doc.keys()}")
 

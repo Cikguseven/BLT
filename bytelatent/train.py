@@ -6,6 +6,7 @@ import logging
 import math
 import os
 import sys
+import datetime
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import asdict, dataclass
@@ -240,7 +241,7 @@ def train(args: TrainArgs):
         setup_torch_distributed(args.distributed)
         world_mesh = get_device_mesh(args.distributed)
         logger.info(f"Starting job: {args.name}")
-
+        logger.info(f"Job started at {datetime.datetime.now().isoformat()}")
         # build dataloader
         # need dp world size and rank
         dp_mesh = world_mesh["dp_replicate"]
@@ -800,12 +801,17 @@ def main():
 
     Plus all the default values in TrainArgs dataclass.
     """
+    start_time = datetime.datetime.now()
+    logger.info(f"Training started at {start_time.isoformat()}")
     train_args = parse_args_to_pydantic_model(TrainArgs)
     if train_args.debug_dynamo:
         import torch._dynamo
 
         torch._dynamo.config.suppress_errors = True
     train(train_args)
+    end_time = datetime.datetime.now()
+    logger.info(f"Training ended at {end_time.isoformat()}")
+    logger.info(f"Total training duration: {end_time - start_time}")
 
 
 if __name__ == "__main__":

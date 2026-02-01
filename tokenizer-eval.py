@@ -10,16 +10,16 @@ import torch
 # Set to True to enable testing for each tokenizer
 TOKENIZERS_TO_TEST = {
     "utf8": False,
-    "myte": True,
-    "parity_aware_bpe": False,
+    "myte": False,
+    "parity_aware_bpe": True,
     "blt": False,
 }
 
 # Tokenizer file paths
 MYTE_DECOMPOSE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/decompose_map.json"
-# MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/merge_map.json"
-MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/mappings_decomposed_filtered/morf_map_wiki_4096.json"
-PARITY_AWARE_BPE_PATH = "/home/kieron/fyp/parity_aware_bpe/45k_parity-aware_SEA_1m/tokenizer.json"
+MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/merge_map.json"
+MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/mappings_decomposed_filtered/morf_map_mc4_8192_60k.json"
+PARITY_AWARE_BPE_PATH = "/home/kieron/fyp/parity_aware_bpe/90k_parity-aware_SEA_1m/tokenizer.json"
 BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/hf-weights/entropy_model"
 BLT_CHECKPOINT_PATH = "/home/kieron/fyp/blt/hf-weights/blt_1b"
 
@@ -233,7 +233,7 @@ SEA_11 = [
     "cmn_Hans",
 ]
 
-VALID_LANGS = MYTE_96
+VALID_LANGS = SEA_11
 
 # Simple byte tokenizer that segments text into UTF-8 bytes
 class ByteTokenizer:
@@ -258,46 +258,40 @@ def read_lines(fp: Path, max_lines: int) -> List[str]:
     return lines
 
 
-def count_tokens(tokenizer: Any, lines: List[str]) -> int:
+def token_counts_per_sentence(tokenizer: Any, lines: List[str]) -> List[int]:
     if not lines:
-        return 0
-    tokens = tokenizer(lines, padding=False, add_special_tokens=False)
-    return sum(len(sublist) for sublist in tokens["attention_mask"])
+        return []
+    out = tokenizer(lines, padding=False, add_special_tokens=False)
+    return [len(mask) for mask in out["attention_mask"]]
 
 
-def count_parity_tokens(tokenizer: Any, lines: List[str]) -> int:
+def parity_token_counts_per_sentence(tokenizer: Any, lines: List[str]) -> List[int]:
     if not lines:
-        return 0
-    tokens = tokenizer.encode_batch(lines)
-    return sum(len(enc.ids) for enc in tokens)
+        return []
+    encs = tokenizer.encode_batch(lines)
+    return [len(enc.ids) for enc in encs]
 
 
-def count_blt_patches(tokenizer: Any, patcher: Any, lines: List[str]) -> int:
-    """
-    Counts patches used by BLT.
-    NOTE: Patcher is passed in to avoid reloading the model on every call.
-    """
-    total_patches = 0
-
+def blt_patch_counts_per_sentence(tokenizer: Any, patcher: Any, lines: List[str]) -> List[int]:
+    counts: List[int] = []
     for prompt in lines:
         token_ids = tokenizer.encode(prompt)
         if hasattr(token_ids, "tolist"):
             token_ids = token_ids.tolist()
-
         if not token_ids:
+            counts.append(0)
             continue
 
         tokens_tensor = torch.tensor([token_ids], dtype=torch.long, device="cuda:0")
         patch_lengths, _ = patcher.patch(tokens_tensor, include_next_token=False)
-        total_patches += len(patch_lengths.squeeze(0).tolist())
-
-    return total_patches
+        counts.append(len(patch_lengths.squeeze(0).tolist()))
+    return counts
 
 
 # Verified 22 Jan
 def gini(values: List[float]) -> float:
     """Compute the Gini coefficient for a list of non-negative values."""
-    vals = [v for v in values if v >= 0]
+    vals = [v for v in values]
     n = len(vals)
     if n < 2:
         return 0.0
@@ -365,18 +359,22 @@ def main() -> None:
     tokens_per_lang_bytes: Dict[str, int] = {}
     avg_tokens_bytes: Dict[str, float] = {}
     avg_parity_bytes: Dict[str, float] = {}
+    cr_lang_bytes: Dict[str, float] = {}
 
     tokens_per_lang_myte: Dict[str, int] = {}
     avg_tokens_myte: Dict[str, float] = {}
     avg_parity_myte: Dict[str, float] = {}
+    cr_lang_myte: Dict[str, float] = {}
 
     tokens_per_lang_pa_bpe: Dict[str, int] = {}
     avg_tokens_pa_bpe: Dict[str, float] = {}
     avg_parity_pa_bpe: Dict[str, float] = {}
+    cr_lang_pa_bpe: Dict[str, float] = {}
 
     tokens_per_lang_blt: Dict[str, int] = {}
     avg_tokens_blt: Dict[str, float] = {}
     avg_parity_blt: Dict[str, float] = {}
+    cr_lang_blt: Dict[str, float] = {}
 
     if not EVAL_DIR.is_dir():
         raise FileNotFoundError(f"Directory not found: {EVAL_DIR}")
@@ -387,7 +385,7 @@ def main() -> None:
 
     files_to_process = [
         entry for entry in sorted(EVAL_DIR.iterdir())
-        if entry.is_file() and entry.name.rsplit(".", 1)[0] in VALID_LANGS
+        if entry.is_file() and entry.name.rsplit(".", 1)[0] in VALID_LANGS and entry.suffix == ".devtest"
     ]
 
     for idx, entry in enumerate(files_to_process, 1):
@@ -395,44 +393,51 @@ def main() -> None:
         print(f"[{idx}/{len(files_to_process)}] Processing language: {code}")
 
         lines = read_lines(entry, LINES)
-        num_lines = len(lines)
-        if num_lines == 0:
+        if not lines:
             continue
 
         output_lines.append(f"\n--- Language: {code} ---")
         per_lang_parts = []
 
         if "utf8" in enabled:
-            total_tokens_bytes = count_tokens(byte_tokenizer, lines)
-            tokens_per_lang_bytes[code] = total_tokens_bytes
-            avg_tokens_bytes[code] = total_tokens_bytes / num_lines
-            per_lang_parts.append(f"UTF-8 bytes={total_tokens_bytes}")
+            counts = token_counts_per_sentence(byte_tokenizer, lines)  # bytes per sentence
+            counts = [c for c in counts if c > 0]
+            tokens_per_lang_bytes[code] = sum(counts)
+            avg_tokens_bytes[code] = (sum(counts) / len(counts)) if counts else 0.0
+            cr_lang_bytes[code] = (sum(1.0 / c for c in counts) / len(counts)) if counts else 0.0
+            per_lang_parts.append(f"UTF-8 bytes={tokens_per_lang_bytes[code]}")
 
         if "myte" in enabled:
-            total_tokens_myte = count_tokens(myte_tokenizer, lines)
-            tokens_per_lang_myte[code] = total_tokens_myte
-            avg_tokens_myte[code] = total_tokens_myte / num_lines
-            per_lang_parts.append(f"MYTE tokens={total_tokens_myte}")
+            counts = token_counts_per_sentence(myte_tokenizer, lines)
+            counts = [c for c in counts if c > 0]
+            tokens_per_lang_myte[code] = sum(counts)
+            avg_tokens_myte[code] = (sum(counts) / len(counts)) if counts else 0.0
+            cr_lang_myte[code] = (sum(1.0 / c for c in counts) / len(counts)) if counts else 0.0
+            per_lang_parts.append(f"MYTE tokens={tokens_per_lang_myte[code]}")
 
         if "parity_aware_bpe" in enabled:
-            total_tokens_pa_bpe = count_parity_tokens(parity_aware_bpe_tokenizer, lines)
-            tokens_per_lang_pa_bpe[code] = total_tokens_pa_bpe
-            avg_tokens_pa_bpe[code] = total_tokens_pa_bpe / num_lines
-            per_lang_parts.append(f"Parity-Aware BPE tokens={total_tokens_pa_bpe}")
+            counts = parity_token_counts_per_sentence(parity_aware_bpe_tokenizer, lines)
+            counts = [c for c in counts if c > 0]
+            tokens_per_lang_pa_bpe[code] = sum(counts)
+            avg_tokens_pa_bpe[code] = (sum(counts) / len(counts)) if counts else 0.0
+            cr_lang_pa_bpe[code] = (sum(1.0 / c for c in counts) / len(counts)) if counts else 0.0
+            per_lang_parts.append(f"Parity-Aware BPE tokens={tokens_per_lang_pa_bpe[code]}")
 
         if "blt" in enabled:
-            total_tokens_blt = count_blt_patches(blt_tokenizer, blt_patcher, lines)
-            tokens_per_lang_blt[code] = total_tokens_blt
-            avg_tokens_blt[code] = total_tokens_blt / num_lines
-            per_lang_parts.append(f"BLT patches={total_tokens_blt}")
+            counts = blt_patch_counts_per_sentence(blt_tokenizer, blt_patcher, lines)
+            counts = [c for c in counts if c > 0]
+            tokens_per_lang_blt[code] = sum(counts)
+            avg_tokens_blt[code] = (sum(counts) / len(counts)) if counts else 0.0
+            cr_lang_blt[code] = (sum(1.0 / c for c in counts) / len(counts)) if counts else 0.0
+            per_lang_parts.append(f"BLT patches={tokens_per_lang_blt[code]}")
 
         output_lines.append(", ".join(per_lang_parts))
 
     # English baselines (only for enabled tokenizers)
-    eng_bytes = tokens_per_lang_bytes.get("eng_Latn") if "utf8" in enabled else None
-    eng_myte = tokens_per_lang_myte.get("eng_Latn") if "myte" in enabled else None
-    eng_pa_bpe = tokens_per_lang_pa_bpe.get("eng_Latn") if "parity_aware_bpe" in enabled else None
-    eng_blt = tokens_per_lang_blt.get("eng_Latn") if "blt" in enabled else None
+    eng_avg_bytes = avg_tokens_bytes.get("eng_Latn") if "utf8" in enabled else None
+    eng_avg_myte = avg_tokens_myte.get("eng_Latn")if "myte" in enabled else None
+    eng_avg_pa_bpe = avg_tokens_pa_bpe.get("eng_Latn") if "parity_aware_bpe" in enabled else None
+    eng_avg_blt = avg_tokens_blt.get("eng_Latn") if "blt" in enabled else None
 
     # Per-language parity + compression stats (only for enabled tokenizers)
     all_langs = sorted(set().union(
@@ -445,47 +450,47 @@ def main() -> None:
     for lang in all_langs:
         output_lines.append(f"\n--- Language: {lang} ---")
 
-        if "utf8" in enabled and lang in avg_tokens_bytes and eng_bytes:
-            parity = tokens_per_lang_bytes[lang] / eng_bytes
+        if "utf8" in enabled and lang in avg_tokens_bytes and eng_avg_bytes:
+            parity = avg_tokens_bytes[lang] / eng_avg_bytes
             avg_parity_bytes[lang] = parity
             lines_per_token = 1 / avg_tokens_bytes[lang] if avg_tokens_bytes[lang] > 0 else 0.0
             parts = []
             parts.append(f"UTF-8 parity: {parity:.2f}")
-            parts.append(f"UTF-8 average bytes per line: {avg_tokens_bytes[lang]:.2f}")
+            parts.append(f"UTF-8 average bytes per sentence: {avg_tokens_bytes[lang]:.2f}")
             parts.append(f"UTF-8 compression rate: {lines_per_token:.4f}")
             output_lines.append(", ".join(parts))
 
-        if "myte" in enabled and lang in avg_tokens_myte and eng_myte:
-            parity = tokens_per_lang_myte[lang] / eng_myte
+        if "myte" in enabled and lang in avg_tokens_myte and eng_avg_myte:
+            parity = avg_tokens_myte[lang] / eng_avg_myte
             avg_parity_myte[lang] = parity
             lines_per_token = 1 / avg_tokens_myte[lang] if avg_tokens_myte[lang] > 0 else 0.0
             parts = []
             parts.append(f"MYTE parity: {parity:.2f}")
-            parts.append(f"MYTE average tokens per line: {avg_tokens_myte[lang]:.2f}")
+            parts.append(f"MYTE average tokens per sentence: {avg_tokens_myte[lang]:.2f}")
             parts.append(f"MYTE compression rate: {lines_per_token:.4f}")
             output_lines.append(", ".join(parts))
-        if "parity_aware_bpe" in enabled and lang in avg_tokens_pa_bpe and eng_pa_bpe:
-            parity = tokens_per_lang_pa_bpe[lang] / eng_pa_bpe
+        if "parity_aware_bpe" in enabled and lang in avg_tokens_pa_bpe and eng_avg_pa_bpe:
+            parity = avg_tokens_pa_bpe[lang] / eng_avg_pa_bpe
             avg_parity_pa_bpe[lang] = parity
             lines_per_token = 1 / avg_tokens_pa_bpe[lang] if avg_tokens_pa_bpe[lang] > 0 else 0.0
             parts = []
             parts.append(f"Parity-Aware BPE parity: {parity:.2f}")
-            parts.append(f"Parity-Aware BPE average tokens per line: {avg_tokens_pa_bpe[lang]:.2f}")
+            parts.append(f"Parity-Aware BPE average tokens per sentence: {avg_tokens_pa_bpe[lang]:.2f}")
             parts.append(f"Parity-Aware BPE compression rate: {lines_per_token:.4f}")
             output_lines.append(", ".join(parts))
 
-        if "blt" in enabled and lang in avg_tokens_blt and eng_blt:
-            parity = tokens_per_lang_blt[lang] / eng_blt
+        if "blt" in enabled and lang in avg_tokens_blt and eng_avg_blt:
+            parity = avg_tokens_blt[lang] / eng_avg_blt
             avg_parity_blt[lang] = parity
             lines_per_token = 1 / avg_tokens_blt[lang] if avg_tokens_blt[lang] > 0 else 0.0
             parts = []
             parts.append(f"BLT parity: {parity:.2f}")
-            parts.append(f"BLT average patches per line: {avg_tokens_blt[lang]:.2f}")
+            parts.append(f"BLT average patches per sentence: {avg_tokens_blt[lang]:.2f}")
             parts.append(f"BLT compression rate: {lines_per_token:.4f}")
             output_lines.append(", ".join(parts))
 
     # Gini coefficients (only for enabled tokenizers)
-    output_lines.append("\n--- Gini Coefficients (across languages) ---")
+    output_lines.append("\n--- Gini Coefficient (lower is better) ---")
     gini_parts: List[str] = []
     if "utf8" in enabled:
         gini_parts.append(f"UTF-8: {gini(list(avg_tokens_bytes.values())):.3f}")
@@ -497,14 +502,17 @@ def main() -> None:
         gini_parts.append(f"BLT: {gini(list(avg_tokens_blt.values())):.3f}")
     output_lines.append(", ".join(gini_parts) if gini_parts else "No enabled tokenizers produced data.")
 
-    def _combined_avg(d: Dict[str, float]) -> float:
-        return (sum(d.values()) / len(d)) if d else 0.0
-
-    def _inv(x: float) -> float:
-        return (1 / x) if x > 0 else 0.0
+    # Modified helper to support exclusion
+    def _combined_avg(d: Dict[str, float], exclude_key: str = None) -> float:
+        if not d:
+            return 0.0
+        if exclude_key:
+            vals = [v for k, v in d.items() if k != exclude_key]
+            return (sum(vals) / len(vals)) if vals else 0.0
+        return (sum(d.values()) / len(d))
 
     # Global averages across languages (only for enabled)
-    output_lines.append("\n--- Average tokens per line (lower is better) ---")
+    output_lines.append("\n--- Average tokens per sentence (lower is better) ---")
     if "utf8" in enabled:
         output_lines.append(f"UTF-8: {_combined_avg(avg_tokens_bytes):.2f}")
     if "myte" in enabled:
@@ -514,35 +522,36 @@ def main() -> None:
     if "blt" in enabled:
         output_lines.append(f"BLT: {_combined_avg(avg_tokens_blt):.2f}")
 
-    output_lines.append("\n--- Compression Rates across all languages (higher is better) ---")
+    output_lines.append("\n--- Compression Rate (macro-averaged; higher is better) ---")
     if "utf8" in enabled:
-        output_lines.append(f"UTF-8: {_inv(_combined_avg(avg_tokens_bytes)):.4f}")
+        output_lines.append(f"UTF-8: {_combined_avg(cr_lang_bytes):.4f}")
     if "myte" in enabled:
-        output_lines.append(f"MYTE: {_inv(_combined_avg(avg_tokens_myte)):.4f}")
+        output_lines.append(f"MYTE: {_combined_avg(cr_lang_myte):.4f}")
     if "parity_aware_bpe" in enabled:
-        output_lines.append(f"Parity-Aware BPE: {_inv(_combined_avg(avg_tokens_pa_bpe)):.4f}")
+        output_lines.append(f"Parity-Aware BPE: {_combined_avg(cr_lang_pa_bpe):.4f}")
     if "blt" in enabled:
-        output_lines.append(f"BLT: {_inv(_combined_avg(avg_tokens_blt)):.4f}")
+        output_lines.append(f"BLT: {_combined_avg(cr_lang_blt):.4f}")
 
-    output_lines.append("\n--- Average Parity vs English (lower is better) ---")
+    # Updated to exclude 'eng_Latn' from average tokenizer parity
+    output_lines.append("\n--- Average Tokenizer Parity vs English (macro-averaged; lower is better) ---")
     if "utf8" in enabled:
-        output_lines.append(f"UTF-8: {_combined_avg(avg_parity_bytes):.2f}" if eng_bytes else "UTF-8: English missing")
+        output_lines.append(f"UTF-8: {_combined_avg(avg_parity_bytes, exclude_key='eng_Latn'):.2f}" if eng_avg_bytes else "UTF-8: English missing")
     if "myte" in enabled:
-        output_lines.append(f"MYTE: {_combined_avg(avg_parity_myte):.2f}" if eng_myte else "MYTE: English missing")
+        output_lines.append(f"MYTE: {_combined_avg(avg_parity_myte, exclude_key='eng_Latn'):.2f}" if eng_avg_myte else "MYTE: English missing")
     if "parity_aware_bpe" in enabled:
-        output_lines.append(f"Parity-Aware BPE: {_combined_avg(avg_parity_pa_bpe):.2f}" if eng_pa_bpe else "Parity-Aware BPE: English missing")
+        output_lines.append(f"Parity-Aware BPE: {_combined_avg(avg_parity_pa_bpe, exclude_key='eng_Latn'):.2f}" if eng_avg_pa_bpe else "Parity-Aware BPE: English missing")
     if "blt" in enabled:
-        output_lines.append(f"BLT: {_combined_avg(avg_parity_blt):.2f}" if eng_blt else "BLT: English missing")
+        output_lines.append(f"BLT: {_combined_avg(avg_parity_blt, exclude_key='eng_Latn'):.2f}" if eng_avg_blt else "BLT: English missing")
 
-    output_lines.append("\n--- Worst-case Parity vs English (lower is better) ---")
+    output_lines.append("\n--- Worst-case Tokenizer Parity vs English (lower is better) ---")
     if "utf8" in enabled:
-        output_lines.append(f"UTF-8: {max(avg_parity_bytes.values()):.2f}" if eng_bytes and avg_parity_bytes else "UTF-8: English missing")
+        output_lines.append(f"UTF-8: {max(avg_parity_bytes.values()):.2f}" if eng_avg_bytes and avg_parity_bytes else "UTF-8: English missing")
     if "myte" in enabled:
-        output_lines.append(f"MYTE: {max(avg_parity_myte.values()):.2f}" if eng_myte and avg_parity_myte else "MYTE: English missing")
+        output_lines.append(f"MYTE: {max(avg_parity_myte.values()):.2f}" if eng_avg_myte and avg_parity_myte else "MYTE: English missing")
     if "parity_aware_bpe" in enabled:
-        output_lines.append(f"Parity-Aware BPE: {max(avg_parity_pa_bpe.values()):.2f}" if eng_pa_bpe and avg_parity_pa_bpe else "Parity-Aware BPE: English missing")
+        output_lines.append(f"Parity-Aware BPE: {max(avg_parity_pa_bpe.values()):.2f}" if eng_avg_pa_bpe and avg_parity_pa_bpe else "Parity-Aware BPE: English missing")
     if "blt" in enabled:
-        output_lines.append(f"BLT: {max(avg_parity_blt.values()):.2f}" if eng_blt and avg_parity_blt else "BLT: English missing")
+        output_lines.append(f"BLT: {max(avg_parity_blt.values()):.2f}" if eng_avg_blt and avg_parity_blt else "BLT: English missing")
 
     # Write output to file instead of printing
     timestamp = time.strftime("%b%d-%H%M", time.localtime())
@@ -550,7 +559,6 @@ def main() -> None:
     with open(output_path, "w", encoding="utf-8") as f:
         for line in output_lines:
             f.write(line + "\n")
-
 
 if __name__ == "__main__":
     main()

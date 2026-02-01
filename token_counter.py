@@ -1,9 +1,8 @@
 from typing import List
 from pathlib import Path
-from tokenizers import Tokenizer
 import concurrent.futures
 import os
-import tiktoken
+# Removed tokenizer imports
 
 def read_lines(fp):
     lines: List[str] = []
@@ -14,32 +13,25 @@ def read_lines(fp):
                 lines.append(line)
     return lines
 
-def count_parity_tokens(tokenizer, lines):
+
+def count_utf8_bytes(lines):
+    """Counts the total UTF-8 bytes in the list of strings."""
     if not lines:
         return 0
-    tokens = tokenizer.encode_batch(lines)
-    return sum(len(enc.ids) for enc in tokens)
+    # Encode each line to utf-8 and sum the lengths
+    return sum(len(line.encode("utf-8")) for line in lines)
 
-def count_tiktokens(lines):
-    if not lines:
-        return 0
-    enc = tiktoken.get_encoding("cl100k_base")
-    total = 0
-    for line in lines:
-        ids = enc.encode(line)
-        total += len(ids)
-    return total
 
-def process_file(path_str, model_path):
-    # tokenizer = Tokenizer.from_file(model_path)
+def process_file(path_str):
+    # Removed model_path argument
     p = Path(path_str)
     lines = read_lines(p)
-    # c = count_parity_tokens(tokenizer, lines)
-    c = count_tiktokens(lines)
+    # Using byte count instead of token count
+    c = count_utf8_bytes(lines)
     return str(p), c
 
+
 def main(
-    model_path,
     folder,
 ):
     root = Path(folder)
@@ -52,7 +44,8 @@ def main(
     print(f"Processing {len(files)} files with {max_workers} processes...")
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(process_file, str(p), model_path) for p in files]
+        # Removed model_path from arguments
+        futures = [executor.submit(process_file, str(p)) for p in files]
 
         for future in concurrent.futures.as_completed(futures):
             p, c = future.result()
@@ -65,8 +58,9 @@ def main(
         print(f"{c}\t{p}")
     print(f"\nTOTAL\t{total}")
 
+
 if __name__ == "__main__":
     main(
-        model_path="/home/kieron/fyp/parity_aware_bpe/45k_parity-aware_SEA_1m/tokenizer.json",
-        folder="/home/kieron/fyp/data/mc4_30lang_5000000_sentences"
+        # Removed model_path
+        folder="/home/kieron/fyp/data/mc4_SEA_5000000_sentences"
     )
