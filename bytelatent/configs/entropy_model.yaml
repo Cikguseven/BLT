@@ -2,8 +2,8 @@
 # Evals can be activated by uncommenting its config
 # python -m launchers.stool config=apps/main/configs/debug.yaml nodes=8 account=fair_amaia_cw_codegen qos=lowest
 
-dump_dir: /home/kieron/fyp/blt/tmp/blt-entropy
-name: "debug"
+dump_dir: /home/kieron/fyp/blt/tmp/blt-entropy/mc4_SEA_1000000_sentences_temp_point3
+name: "train_entropy_model"
 steps: 100_000
 max_steps: null
 probe_freq: null
@@ -35,10 +35,10 @@ entropy_model:
   attn_impl: "xformers"
 
 data:
-  root_dir: /home/kieron/fyp/data/mc4_SEA_1000000_sentences # Point to the folder containing your .jsonl files
+  root_dir: /home/kieron/fyp/data/mc4_SEA_1000000_sentences_temp_0.3
   sources:
     combined: 1.0
-  batch_size: 32
+  batch_size: 16
   prefetch_size: 64
   # seqlen is in terms of patches and
   # max_encoder_seq_length is in terms of bytes.
@@ -62,17 +62,15 @@ profiling:
   run: false
 
 checkpoint:
-  # path: /home/kieron/fyp/blt/tmp/blt-entropy/checkpoints  # Will be auto-set if not specified
-  # init_ckpt_path: /home/kieron/fyp/blt/tmp/blt-entropy/checkpoints/0000020000
   dump:
     every: 10000
     keep: 2
   eval:
-    every: 5000
-    keep: -1
+    every: 10000
+    keep: 2
 
 logging:
-  freq: 100
+  freq: 1000
 
 eval_on_gpus: 4
 eval: null

@@ -48,8 +48,8 @@ def main(tokenizer_name: str, path_to_save: str, api_key: Optional[str] = None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("tokenizer_name", type=str)
-    parser.add_argument("tokenizer_dir", type=str, default=8)
+    parser.add_argument("--tokenizer_name", type=str, default="gemma")
+    parser.add_argument("--tokenizer_dir", type=str, default="/home/kieron/fyp/blt/tokenizer")
     parser.add_argument("--api_key", type=str, default="")
     args = parser.parse_args()
 

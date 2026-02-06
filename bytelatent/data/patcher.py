@@ -77,29 +77,58 @@ def calculate_entropies(
 
     grad_context = nullcontext() if enable_grad else torch.no_grad()
 
-    with grad_context:
+    # Set the cuda device context if applicable to ensure implicit tensor creations (like masks) are on the correct device
+    device_ctx = nullcontext()
+    if device and "cuda" in device:
+        try:
+            device_idx = int(device.split(":")[-1])
+            device_ctx = torch.cuda.device(device_idx)
+        except (ValueError, IndexError):
+            # Fallback if device string format is unexpected, relying on default behavior
+            pass
+
+    with grad_context, device_ctx:
         entropies = []
         preds = []
         max_length = getattr(entropy_model, "max_length", 8192)
         batch_numel = max_length * patching_batch_size
         splits = torch.split(tokens.flatten(), batch_numel)
         for split in splits:
-            pad_size = (max_length - (split.numel() % max_length)) % max_length
-            pad = torch.zeros(
-                pad_size, dtype=split.dtype, device=split.device, requires_grad=False
-            )
-            split = torch.cat((split, pad), dim=0)
-            split = split.reshape(-1, max_length)
-            if device is not None:
+            if split.numel() == 0:
+                continue
+
+            if device:
                 split = split.to(device)
-            # assert torch.all(split >= 0) and torch.all(split < 260)
-            pred = entropy_model(split)
-            pred = pred.reshape(-1, pred.shape[-1])[
-                : split.numel() - pad_size, :
-            ]  # [batch_size * seq_len, vocab]
-            preds.append(pred)
-            pred_entropies = entropy(pred)
-            entropies.append(pred_entropies)
+
+            # Reshape split to match model expectations [Batch, Seq]
+            # Since we iterate over flattened tokens, we need to batch them up into max_length chunks.
+            # Handle potential uneven last chunk.
+            original_len = split.shape[0]
+            rows = original_len // max_length
+            remainder = original_len % max_length
+
+            input_split = split
+            if remainder != 0:
+                pad_len = max_length - remainder
+                input_split = F.pad(input_split, (0, pad_len), value=0)
+                rows += 1
+
+            input_split = input_split.view(rows, max_length)
+
+            pred = entropy_model(input_split)
+            ent = entropy(pred)
+
+            # Restore flattened shape and remove padding
+            ent_flat = ent.reshape(-1)
+            pred_flat = pred.reshape(-1, pred.size(-1))
+
+            if remainder != 0:
+                ent_flat = ent_flat[:original_len]
+                pred_flat = pred_flat[:original_len]
+
+            entropies.append(ent_flat)
+            preds.append(pred_flat)
+
 
         concat_entropies = torch.cat(entropies, dim=0)
         concat_entropies = concat_entropies.reshape(tokens.shape)
@@ -490,16 +519,18 @@ class Patcher:
                 patcher_args.entropy_model_checkpoint_dir,
                 state_path,
             )
-            entropy_model, _ = to_device(entropy_model, patcher_args.patching_device)
+            entropy_model, resolved_device = to_device(entropy_model, patcher_args.patching_device)
             self.entropy_model = entropy_model
+            self.device = resolved_device
         else:
             self.entropy_model = None
+            self.device = patcher_args.device
+
         self.threshold = patcher_args.threshold
         self.threshold_add = patcher_args.threshold_add
         self.max_patch_length = patcher_args.max_patch_length
         self.patch_size = patcher_args.patch_size
         self.patching_batch_size = patcher_args.patching_batch_size
-        self.device = patcher_args.device
         self.monotonicity = patcher_args.monotonicity
         self.log_time = patcher_args.log_time
         if self.log_time:

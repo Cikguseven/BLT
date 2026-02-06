@@ -7,7 +7,7 @@ import time
 
 import fsspec
 import requests
-from huggingface_hub import snapshot_download
+from huggingface_hub import snapshot_download, list_repo_files
 
 
 def run_command(command):
@@ -15,28 +15,23 @@ def run_command(command):
     subprocess.run(command, shell=True, check=True)
 
 
-def download_dataset(repo_id, local_dir, allow_patterns):
+def download_dataset(repo_id, local_dir, allow_patterns=None, max_files=None):
     print(f"Downloading dataset from {repo_id}...")
-    max_retries = 5
-    retry_delay = 10  # seconds
-    for attempt in range(max_retries):
-        try:
-            snapshot_download(
-                repo_id,
-                repo_type="dataset",
-                local_dir=local_dir,
-                allow_patterns=allow_patterns,
-                resume_download=True,
-                max_workers=16,  # Don't hesitate to increase this number to lower the download time
-            )
-            break
-        except requests.exceptions.ReadTimeout:
-            if attempt < max_retries - 1:
-                print(f"Timeout occurred. Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                raise
-    print(f"Dataset downloaded to {local_dir}")
+    if allow_patterns is None and max_files is not None:
+        files = list_repo_files(repo_id, repo_type="dataset")
+        # Keep only parquet (for fineweb) or jsonl.zst (for dclm), adjust as needed
+        files = [f for f in files if f.endswith(".parquet") or f.endswith(".jsonl.zst")]
+        allow_patterns = files[:max_files]   # snapshot_download accepts a list too
+
+    snapshot_download(
+        repo_id,
+        repo_type="dataset",
+        local_dir=local_dir,
+        allow_patterns=allow_patterns,
+        resume_download=True,
+        max_workers=16,
+    )
+
 
 
 def parquet_to_jsonl(
@@ -126,7 +121,7 @@ def main(dataset, memory, data_dir, seed=42, nchunks=32, s3_profile: str | None 
     terashuf_dir = setup_terashuf(work_dir)
 
     # Download dataset
-    download_dataset(repo_id, src_dir, allow_patterns)
+    download_dataset(repo_id, src_dir, allow_patterns, max_files=args.max_files)
 
     if "fineweb" in dataset:
         parquet_to_jsonl(dataset, work_dir, src_dir, src_dir)
@@ -156,11 +151,12 @@ def main(dataset, memory, data_dir, seed=42, nchunks=32, s3_profile: str | None 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("dataset", type=str)
-    parser.add_argument("memory", type=float, default=8)
-    parser.add_argument("--data_dir", type=str, default="data")
+    parser.add_argument("--dataset", type=str, default="dclm_baseline_1.0")
+    parser.add_argument("--memory", type=float, default=24)
+    parser.add_argument("--data_dir", type=str, default="/home/kieron/fyp/data")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--nchunks", type=int, default=32)
+    parser.add_argument("--nchunks", type=int, default=4)
+    parser.add_argument("--max_files", type=int, default=2)
 
     args = parser.parse_args()
 

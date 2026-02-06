@@ -92,16 +92,31 @@ class PreprocessIterator(StatefulIterator):
                 tokens = self.tokenizer.encode(example.text)
             else:
                 tokens = example.tokens
+
+            # Compute entropies if needed for entropy-based patching
             if (
                 self.patcher is not None
                 and self.patcher.patching_mode == PatchingModeEnum.entropy
             ):
-                assert (
-                    example.entropies is not None
-                ), "For patching, entropies cannot be None"
-                entropies = torch.tensor(example.entropies).unsqueeze(0)
+                if example.entropies is not None:
+                    entropies = torch.tensor(example.entropies).unsqueeze(0)
+                elif self.patcher.realtime_patching:
+                    # Compute entropies using the entropy model
+                    from bytelatent.data.patcher import calculate_entropies
+
+                    entropies, _ = calculate_entropies(
+                        torch.tensor(tokens).unsqueeze(0),
+                        self.patcher.entropy_model,
+                        self.patcher.patching_batch_size,
+                        self.patcher.device,
+                    )
+                else:
+                    raise AssertionError(
+                        "For patching, entropies cannot be None and realtime_patching is disabled"
+                    )
             else:
                 entropies = None
+
             if self.patcher is None:
                 patch_lengths = None
             else:

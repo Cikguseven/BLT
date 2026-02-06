@@ -11,16 +11,17 @@ import torch
 TOKENIZERS_TO_TEST = {
     "utf8": False,
     "myte": False,
-    "parity_aware_bpe": True,
-    "blt": False,
+    "parity_aware_bpe": False,
+    "blt": True,
 }
 
 # Tokenizer file paths
 MYTE_DECOMPOSE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/decompose_map.json"
 MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/merge_map.json"
-MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/mappings_decomposed_filtered/morf_map_mc4_8192_60k.json"
-PARITY_AWARE_BPE_PATH = "/home/kieron/fyp/parity_aware_bpe/90k_parity-aware_SEA_1m/tokenizer.json"
+MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/mappings_decomposed_filtered/morf_map_mc4_12288.json"
+PARITY_AWARE_BPE_PATH = "/home/kieron/fyp/parity_aware_bpe/45k_parity-aware_SEA_1m_v2/tokenizer.json"
 BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/hf-weights/entropy_model"
+BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/tmp/blt-entropy/mc4_SEA_1000000_sentences_temp_point3/checkpoints/0000100000/consolidated"
 BLT_CHECKPOINT_PATH = "/home/kieron/fyp/blt/hf-weights/blt_1b"
 
 LINES = 1012
