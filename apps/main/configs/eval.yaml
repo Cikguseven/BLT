@@ -2,7 +2,7 @@ ckpt_dir: "/home/kieron/fyp/blt/hf-weights/blt_1b"
 dump_dir: "/home/kieron/fyp/blt/dump-dir"
 entropy_ckpt_dir: "/home/kieron/fyp/blt/hf-weights/entropy_model"
 generator:
-  max_tokens: 4096
+  max_tokens: 8192
   dtype: bf16
   temperature: 1.0
   top_p: 0.95
@@ -12,9 +12,9 @@ harness:
     # - piqa
     # - arc_easy
     # - arc_challenge
-    # - mmlu
-    - mbpp
-    - humaneval
+    - mmlu
+    # - mbpp
+    # - humaneval
     # - task: boolq
     #   dataset_kwargs:
     #     trust_remote_code: true

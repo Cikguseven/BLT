@@ -110,7 +110,7 @@ class EvalHarnessLM(LM):
             top_k = gen_args.get("top_k", 0)
             until = gen_args.get("until", [])
 
-            max_gen_len = gen_args.get("max_gen_toks", 256)
+            max_gen_len = gen_args.get("max_tokens", 8192)
 
             generated_tokens_list = generate_nocache(
                 prompts=list(prompts),

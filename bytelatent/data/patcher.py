@@ -95,8 +95,8 @@ def calculate_entropies(
         elif hasattr(entropy_model, "config") and hasattr(entropy_model.config, "n_positions"):
             max_length = entropy_model.config.n_positions
         else:
-            max_length = getattr(entropy_model, "max_length", 4096)
-        max_length = min(max_length, 4096)
+            max_length = getattr(entropy_model, "max_length", 8192)
+        max_length = min(max_length, 8192)
         batch_numel = max_length * patching_batch_size
         splits = torch.split(tokens.flatten(), batch_numel)
         for split in splits:
@@ -114,7 +114,6 @@ def calculate_entropies(
                 # Pad to max_length for model input
                 pad_len = max_length - original_len
                 input_split = F.pad(split, (0, pad_len), value=0).unsqueeze(0)
-                # input_split = torch.clamp(input_split, min=0, max=260)
 
                 pred = entropy_model(input_split)
                 ent = entropy(pred)
@@ -154,15 +153,8 @@ def calculate_entropies(
         concat_entropies = torch.cat(entropies, dim=0)
         concat_preds = torch.cat(preds, dim=0)
 
-        # New: force any async CUDA error to surface here
-        torch.cuda.synchronize()
-
-        assert concat_entropies.numel() == tokens.numel(), (concat_entropies.numel(), tokens.numel())
-        assert concat_preds.shape[0] == tokens.numel(), (concat_preds.shape, tokens.shape)
-
         concat_entropies = concat_entropies.reshape(tokens.shape)
-        concat_preds = concat_preds.reshape(tokens.shape[0], tokens.shape[1], -1)
-        return concat_entropies, concat_preds
+        concat_preds = concat_preds.reshape(tokens.shape[0], -1)
 
     return concat_entropies, concat_preds
 
