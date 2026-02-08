@@ -7,6 +7,7 @@ import os
 import sys
 from datetime import datetime
 
+os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 import torch
@@ -40,14 +41,12 @@ from bytelatent.distributed import (
     to_py_num,
 )
 from bytelatent.generate import (
-    PackedCausalTransformerGenerator,
     load_consolidated_model_and_tokenizer,
 )
+from bytelatent.generate_blt import generate_nocache
 from bytelatent.model.blt import ByteLatentTransformer
 from bytelatent.blt_tokenizers.build_tokenizer import TokenizerArgs
 from bytelatent.transformer import LMTransformer
-
-EVAL_FOLDER_NAME = "{:010d}"
 
 logger = logging.getLogger()
 
@@ -70,149 +69,164 @@ class MockAccelerator:
 
 # Light wrapper around generator for lm-eval harness
 class EvalHarnessLM(LM):
-    def __init__(self, generator):
+    def __init__(self, model, tokenizer, patcher):
         super().__init__()
-        self.generator = generator
+        self.model = model
+        self.tokenizer = tokenizer
+        self.patcher = patcher
         self.accelerator = MockAccelerator()
         self._rank = get_global_rank()
         self._world_size = get_world_size()
-        self.device = generator.device
+        self.device = next(model.parameters()).device
+
+        # Infer max sequence length
+        if hasattr(model, "get_output_seq_len"):
+            self.max_seq_len = model.get_output_seq_len()
+        else:
+            self.max_seq_len = 8192
 
     def generate_until(self, requests: list[Instance]) -> list[str]:
-        prompts, gen_args = zip(*[req.args for req in requests])
-        assert all_dicts_same(gen_args), "Doesn't support different gen args for now"
-        gen_args = gen_args[0]
-        temperature = gen_args.get("temperature", 0.0)
-        top_p = gen_args.get("top_p", None)
-        top_k = gen_args.get("top_k", None)
-        until = gen_args.get("until", [])
+        results = [None] * len(requests)
+        # Group by generation arguments
+        groups = {}
+        for i, req in enumerate(requests):
+            prompt, gen_args = req.args
+            # Convert dict to hashable tuple, handling list values like 'until'
+            arg_key = tuple(sorted((k, tuple(v) if isinstance(v, list) else v)
+                            for k, v in gen_args.items()))
+            if arg_key not in groups:
+                groups[arg_key] = []
+            groups[arg_key].append((i, prompt, gen_args))
 
-        self.generator.temperature = temperature
-        self.generator.top_p = top_p
-        self.generator.top_k = top_k
-        self.generator.until = until
-        generations, _, _ = self.generator.generate(prompts)
-        filtered_gen = []
-        for g in generations:
-            for e in until:
-                g = g.replace(e, "")
-            filtered_gen.append(g)
-        return filtered_gen
+        for group in groups.values():
+            indices, prompts, gen_args_list = zip(*group)
+            gen_args = gen_args_list[0]
+
+            temperature = gen_args.get("temperature", 0.0)
+            use_sampling = temperature > 0.0
+            temp_val = temperature if use_sampling else 1.0
+
+            top_p = gen_args.get("top_p", 0.0)
+            top_k = gen_args.get("top_k", 0)
+            until = gen_args.get("until", [])
+
+            max_gen_len = gen_args.get("max_gen_toks", 256)
+
+            generated_tokens_list = generate_nocache(
+                prompts=list(prompts),
+                model=self.model,
+                tokenizer=self.tokenizer,
+                patcher=self.patcher,
+                max_gen_len=max_gen_len,
+                use_sampling=use_sampling,
+                temp=temp_val,
+                top_k=top_k,
+                top_p=top_p,
+                remove_prompts=True
+            )
+
+            for idx, ids in zip(indices, generated_tokens_list):
+                text = self.tokenizer.decode(ids)
+                for e in until:
+                    if e in text:
+                        text = text.split(e)[0]
+                results[idx] = text
+
+        return results
 
     def loglikelihood(self, requests: list[Instance]) -> list[tuple[float, bool]]:
-        prompts, continuations = zip(*[req.args for req in requests])
-        inputs = [req.args[0] + req.args[1] for req in requests]
-        max_gen_len = self.generator.max_gen_len
-        # We temporarily lower max gen len
-        self.generator.max_gen_len = 1
-        _, lls, greedy = self.generator.generate(inputs)
         results = []
-        for p, ll, gr in zip(prompts, lls, greedy):
-            p_len = len(
-                self.generator.tokenizer.encode(p, add_bos=False, add_eos=False)
-            )
-            results.append((ll[p_len:].sum().item(), gr[p_len:].all().item()))
+        for req in requests:
+            prompt, continuation = req.args
+            ctx_ids = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
+            cont_ids = self.tokenizer.encode(continuation, add_bos=False, add_eos=False)
 
-        self.generator.max_gen_len = max_gen_len
+            # If there's no continuation, define loglikelihood=0 and greedy=True
+            if len(cont_ids) == 0:
+                results.append((0.0, True))
+                continue
+
+            # Ensure the full sequence fits the model's max length.
+            # We must keep at least 1 context token so the first continuation token is predictable.
+            if len(cont_ids) >= self.max_seq_len:
+                cont_ids = cont_ids[: max(1, self.max_seq_len - 1)]
+
+            ctx_budget = self.max_seq_len - len(cont_ids)
+            ctx_budget = max(1, ctx_budget)  # keep >= 1 context token always
+
+            if len(ctx_ids) > ctx_budget:
+                ctx_ids = ctx_ids[-ctx_budget:]
+
+            # (Defensive) if encode ever returned empty, skip rather than crash kernels
+            if len(ctx_ids) == 0:
+                results.append((0.0, False))
+                continue
+
+            full_ids = ctx_ids + cont_ids
+            tokens = torch.tensor([full_ids], device=self.device, dtype=torch.long)
+
+            # Patching
+            patch_lengths, _ = self.patcher.patch(tokens, include_next_token=False)
+            if patch_lengths is not None:
+                patch_lengths = patch_lengths.to(self.device)
+
+            with torch.no_grad():
+                # logits: [1, seq_len, vocab_size]
+                logits = self.model(tokens, patch_lengths=patch_lengths)
+
+            # Continuation is predicted starting from the last context token position.
+            start_logit_idx = len(ctx_ids) - 1
+            cont_len = len(cont_ids)
+            end_logit_idx = start_logit_idx + cont_len
+
+            # Clamp to what the model actually returned (extra safety)
+            end_logit_idx = min(end_logit_idx, logits.size(1))
+            cont_len = min(cont_len, end_logit_idx - start_logit_idx)
+
+            if cont_len <= 0:
+                results.append((0.0, False))
+                continue
+
+            relevant_logits = logits[0, start_logit_idx:end_logit_idx, :]
+            target_tokens = tokens[0, len(ctx_ids) : len(ctx_ids) + cont_len]
+
+            # Extra guard against any mismatch (prevents CUDA asserts)
+            if relevant_logits.size(0) != target_tokens.numel():
+                n = min(relevant_logits.size(0), target_tokens.numel())
+                relevant_logits = relevant_logits[:n, :]
+                target_tokens = target_tokens[:n]
+
+            loss = F.cross_entropy(relevant_logits, target_tokens, reduction="sum")
+
+            greedy_tokens = relevant_logits.argmax(dim=-1)
+            is_greedy = (greedy_tokens == target_tokens).all().item()
+
+            results.append((-loss.item(), is_greedy))
+
         return results
 
     def loglikelihood_rolling(self, requests: list[Instance]) -> list[float]:
-        prompts = [req.args[0] for req in requests]
-        max_gen_len = self.generator.max_gen_len
-        # We temporarily lower max gen len
-        self.generator.max_gen_len = 1
-        _, lls, _ = self.generator.generate(prompts)
         results = []
-        for ll in lls:
-            results.append((ll.sum().item(),))
-        self.generator.max_gen_len = max_gen_len
+        for req in requests:
+            prompt = req.args[0]
+            tokens_list = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
+            tokens = torch.tensor([tokens_list], device=self.device, dtype=torch.long)
+
+            patch_lengths, _ = self.patcher.patch(tokens, include_next_token=False)
+            if patch_lengths is not None:
+                patch_lengths = patch_lengths.to(self.device)
+
+            with torch.no_grad():
+                logits = self.model(tokens, patch_lengths=patch_lengths)
+
+            shift_logits = logits[0, :-1, :].contiguous()
+            shift_labels = tokens[0, 1:].contiguous()
+
+            loss = F.cross_entropy(shift_logits, shift_labels, reduction="sum")
+            results.append(-loss.item())
 
         return results
 
-@torch.no_grad()
-def eval_ppl_on_path(
-    *,
-    world_rank: int,
-    world_size: int,
-    model: LMTransformer | ByteLatentTransformer,
-    tokenizer_args: TokenizerArgs,
-    patcher_args: PatcherArgs,
-    packing_args: PackingArgs,
-    add_patches: bool,
-    path: str,
-    arrow_batch_size: int,
-    max_n_docs: int | None,
-    max_n_batches: int | None,
-    s3_profile: str | None = None,
-):
-    model.eval()
-    seq_len = model.get_output_seq_len()
-    arrow_iterator = ArrowFileIterator(
-        file_path=None,
-        dataset_files=[path],
-        entropy_model_name=None,
-        worker_id=world_rank,
-        num_workers=world_size,
-        arrow_batch_size=arrow_batch_size,
-        preprocess_dir=None,
-        s3_profile=s3_profile,
-        file_format="arrow" if path.endswith("arrow") else "json",
-    )
-    if max_n_docs is not None:
-        arrow_iterator = LimitIterator(arrow_iterator, limit=max_n_docs)
-    preprocess_iterator = PreprocessIterator(
-        arrow_iterator,
-        patcher_args=patcher_args,
-        tokenizer_args=tokenizer_args,
-        add_patches=add_patches,
-    )
-    sequence_iterator = SequenceIterator(
-        preprocess_iterator,
-        sequence_packing_args=SequencePackingArgs(
-            output_seq_len=seq_len,
-            # Effectively disables shuffles
-            buffer_size=1,
-        ),
-        rng_state=None,
-    )
-    packing_iterator = PackingIterator(sequence_iterator, packing_args=packing_args)
-    total_loss = 0.0
-    n_bytes = 0
-    batch_iterator = packing_iterator.create_iter()
-    for i, batch in enumerate(batch_iterator):
-        if i == max_n_batches:
-            break
-        x = torch.from_numpy(batch.x).cuda()
-        y = torch.from_numpy(batch.y).cuda()
-        mask = None if batch.mask is None else torch.from_numpy(batch.mask).cuda()
-        patch_lengths = batch.patch_lengths
-        if patch_lengths is not None:
-            patch_lengths = torch.from_numpy(patch_lengths).cuda()
-
-        if tokenizer_args.name in ["bytes", "blt"]:
-            n_bytes += y.numel() if mask is None else mask.sum().item()
-            if isinstance(model, ByteLatentTransformer):
-                pred = model(x, patch_lengths=patch_lengths)
-            else:
-                pred = model(x)
-            loss = F.cross_entropy(
-                pred.flatten(0, 1), y.flatten(0, 1), reduction="sum", ignore_index=0
-            )
-            total_loss += loss.item()
-        else:
-            raise NotImplementedError()
-    all_n_bytes = to_py_num(dist_sum(n_bytes))
-    all_total_loss = to_py_num(dist_sum(total_loss))
-    return {
-        "n_bytes": all_n_bytes,
-        "n_bytes_gpu": n_bytes,
-        "loss_sum": all_total_loss,
-        "loss_sum_gpu": total_loss,
-        "loss_mean": all_total_loss / all_n_bytes,
-        "loss_mean_gpu": total_loss / n_bytes,
-        "ppl": math.exp(all_total_loss / all_n_bytes) if all_n_bytes > 0 else 0.0,
-        "bpb": all_total_loss / math.log(2) / all_n_bytes,
-    }
 
 def launch_eval(eval_args: EvalArgs):
     assert eval_args.dump_dir is not None
@@ -226,11 +240,7 @@ def launch_eval(eval_args: EvalArgs):
     if not torch.distributed.is_initialized():
         setup_torch_distributed(distributed_args)
 
-    # world_mesh = get_device_mesh(distributed_args)
-    # dp_mesh = world_mesh["dp_replicate"]
     assert distributed_args.dp_shard == 1
-    # world_size = dp_mesh.size()
-    # world_rank = dp_mesh.get_local_rank()
 
     fs = get_fs(eval_args.ckpt_dir, s3_profile=eval_args.s3_profile)
     if (
@@ -268,53 +278,23 @@ def launch_eval(eval_args: EvalArgs):
     model.eval()
     logger.info("Model loaded")
 
-
-    # ppl_results = None
-    # if eval_args.run_ppl:
-    #     assert eval_args.validation is not None
-    #     packing_args = PackingArgs(
-    #         batch_size=eval_args.validation.batch_size,
-    #         seq_len=train_cfg.data.seq_len,
-    #         max_length=train_cfg.data.max_encoder_seq_length,
-    #         pad_to_max_length=True,
-    #         enable_byte_ngrams=False,
-    #         pad_id=pad_id,
-    #         packing_mode=(
-    #             PackingMode.BYTES
-    #             if train_cfg.data.patcher_args.patching_mode == PatchingModeEnum.byte
-    #             else PackingMode.PATCHING
-    #         ),
-    #     )
-    #     if len(eval_args.validation.sources) > 0:
-    #         ppl_results = {}
-    #         logger.info("Starting PPL evaluation on validation sets")
-    #         for source in eval_args.validation.sources:
-    #             ppl_results[source] = eval_ppl_on_path(
-    #                 world_rank=world_rank,
-    #                 world_size=world_size,
-    #                 model=model,
-    #                 tokenizer_args=train_cfg.data.tokenizer_args,
-    #                 patcher_args=train_cfg.data.patcher_args,
-    #                 packing_args=packing_args,
-    #                 add_patches=train_cfg.data.add_patches,
-    #                 path=os.path.join(eval_args.validation.root_dir, source),
-    #                 max_n_docs=eval_args.validation.max_n_docs,
-    #                 max_n_batches=eval_args.validation.max_n_batches,
-    #                 arrow_batch_size=20,
-    #                 s3_profile=eval_args.s3_profile,
-    #             )
+    # Build Patcher
+    patcher_args = train_cfg.data.patcher_args.model_copy(deep=True)
+    patcher_args.realtime_patching = True
+    patcher_args.entropy_model_checkpoint_dir = eval_args.entropy_ckpt_dir
+    patcher = patcher_args.build()
 
     task_results = None
     if eval_args.run_tasks:
-        assert eval_args.generator is not None
         assert eval_args.harness is not None
-        generator = PackedCausalTransformerGenerator(
-            eval_args.generator, model, tokenizer
+        # Instantiate modified EvalHarnessLM
+        wrap = EvalHarnessLM(model, tokenizer, patcher)
+        # Add confirm_run_unsafe_code=True here
+        task_results = simple_evaluate(
+            wrap,
+            **eval_args.harness.model_dump(),
+            confirm_run_unsafe_code=True
         )
-        wrap = EvalHarnessLM(generator)
-        # TODO: This needs to be checked/sped up
-        task_results = simple_evaluate(wrap, **eval_args.harness.model_dump())
-
     results = {"tasks": task_results}
     # TODO: Serial and Parallel yield slightly different number of bytes, debug this later,
     # leaving this log statement here to help with that.
@@ -322,12 +302,8 @@ def launch_eval(eval_args: EvalArgs):
 
     if get_global_rank() == 0:
         with fs.open(os.path.join(dump_dir, "results.json"), "w") as f:
-            f.write(json.dumps(results))
+            f.write(json.dumps(results, default=str))
         logger.info(f"All evaluation results: {results}")
-        # if ppl_results is not None:
-        #     with fs.open(os.path.join(dump_dir, "validation.json"), "w") as f:
-        #         f.write(json.dumps(ppl_results))
-        #     logger.info(f"All validation results: {ppl_results}")
 
     if eval_args.metric_log_dir and get_global_rank() == 0:
         metric_log_path = os.path.join(eval_args.metric_log_dir, "metrics.eval.jsonl")
@@ -339,19 +315,11 @@ def launch_eval(eval_args: EvalArgs):
         if eval_args.global_step is not None:
             timestamp["global_step"] = eval_args.global_step
         with fs.open(metric_log_path, mode="a") as f:
-            f.write(json.dumps(timestamp | results) + "\n")
+            f.write(json.dumps(timestamp | results, default=str) + "\n")
             f.flush()
 
-        # val_log_path = os.path.join(
-        #     eval_args.metric_log_dir, "metrics.validation.jsonl"
-        # )
-        # if ppl_results is not None:
-        #     with fs.open(val_log_path, mode="a") as f:
-        #         f.write(json.dumps(timestamp | ppl_results) + "\n")
-        #         f.flush()
-
 def main():
-    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="fyp/blt/apps/main/configs/eval.yaml")
+    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="/home/kieron/fyp/blt/apps/main/configs/eval.yaml")
     launch_eval(eval_args)
 
 if __name__ == "__main__":

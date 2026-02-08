@@ -1,4 +1,3 @@
-# name: "debug_evals"
 ckpt_dir: "/home/kieron/fyp/blt/hf-weights/blt_1b"
 dump_dir: "/home/kieron/fyp/blt/dump-dir"
 entropy_ckpt_dir: "/home/kieron/fyp/blt/hf-weights/entropy_model"
@@ -10,12 +9,12 @@ generator:
 harness:
   tasks:
     # - hellaswag
-    - piqa
+    # - piqa
     # - arc_easy
     # - arc_challenge
     # - mmlu
-    # - mbpp
-    # - humaneval
+    - mbpp
+    - humaneval
     # - task: boolq
     #   dataset_kwargs:
     #     trust_remote_code: true
