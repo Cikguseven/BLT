@@ -83,7 +83,7 @@ class EvalHarnessLM(LM):
         if hasattr(model, "get_output_seq_len"):
             self.max_seq_len = model.get_output_seq_len()
         else:
-            self.max_seq_len = 8192
+            self.max_seq_len = 4096
 
     def generate_until(self, requests: list[Instance]) -> list[str]:
         results = [None] * len(requests)
@@ -110,27 +110,53 @@ class EvalHarnessLM(LM):
             top_k = gen_args.get("top_k", 0)
             until = gen_args.get("until", [])
 
-            max_gen_len = gen_args.get("max_tokens", 8192)
+            max_gen_len = gen_args.get("max_length", 1024)
 
-            generated_tokens_list = generate_nocache(
-                prompts=list(prompts),
-                model=self.model,
-                tokenizer=self.tokenizer,
-                patcher=self.patcher,
-                max_gen_len=max_gen_len,
-                use_sampling=use_sampling,
-                temp=temp_val,
-                top_k=top_k,
-                top_p=top_p,
-                remove_prompts=True
-            )
+            # Use the model's max_seqlen to derive a safe max_prompt_len.
+            # The global transformer operates on patches; with entropy patching
+            # the average patch size is ~patch_size bytes.  We leave headroom
+            # for generation tokens and keep the prompt within what the model
+            # can handle.
+            avg_patch_size = max(1, int(self.patcher.patch_size))
+            max_byte_budget = (self.max_seq_len - 10) * avg_patch_size  # Extra safety margin
+            safe_max_prompt_len = max(avg_patch_size, max_byte_budget - max_gen_len * avg_patch_size)
 
-            for idx, ids in zip(indices, generated_tokens_list):
-                text = self.tokenizer.decode(ids)
-                for e in until:
-                    if e in text:
-                        text = text.split(e)[0]
-                results[idx] = text
+            for idx, prompt_text in zip(indices, prompts):
+                try:
+                    # Truncate prompt if necessary
+                    prompt_bytes = self.tokenizer.encode(prompt_text, add_bos=False, add_eos=False)
+                    if len(prompt_bytes) > safe_max_prompt_len:
+                        prompt_bytes = prompt_bytes[-safe_max_prompt_len:]
+                        prompt_text = self.tokenizer.decode(prompt_bytes)
+
+                    generated_tokens_list = generate_nocache(
+                        prompts=[prompt_text],
+                        model=self.model,
+                        tokenizer=self.tokenizer,
+                        patcher=self.patcher,
+                        max_prompt_len=safe_max_prompt_len,
+                        max_gen_len=max_gen_len,
+                        use_sampling=use_sampling,
+                        temp=temp_val,
+                        top_k=top_k,
+                        top_p=top_p,
+                        remove_prompts=True
+                    )
+                    text = self.tokenizer.decode(generated_tokens_list[0])
+
+                    min_pos = len(text)
+                    for stop_seq in until:
+                        pos = text.find(stop_seq)
+                        if pos != -1 and pos < min_pos:
+                            min_pos = pos
+
+                    if min_pos < len(text):
+                        text = text[:min_pos]
+
+                    results[idx] = text
+                except Exception as e:
+                    logger.warning(f"Generation failed for prompt {idx}: {e}", exc_info=True)
+                    results[idx] = ""
 
         return results
 
@@ -146,13 +172,14 @@ class EvalHarnessLM(LM):
                 results.append((0.0, True))
                 continue
 
-            # Ensure the full sequence fits the model's max length.
-            # We must keep at least 1 context token so the first continuation token is predictable.
-            if len(cont_ids) >= self.max_seq_len:
-                cont_ids = cont_ids[: max(1, self.max_seq_len - 1)]
+            # Use max_seq_len - 1 as absolute limit to prevent off-by-one errors
+            max_total_len = self.max_seq_len - 1
 
-            ctx_budget = self.max_seq_len - len(cont_ids)
-            ctx_budget = max(1, ctx_budget)  # keep >= 1 context token always
+            if len(cont_ids) >= max_total_len:
+                cont_ids = cont_ids[:max(1, max_total_len - 1)]
+
+            ctx_budget = max_total_len - len(cont_ids)
+            ctx_budget = max(1, ctx_budget)
 
             if len(ctx_ids) > ctx_budget:
                 ctx_ids = ctx_ids[-ctx_budget:]
@@ -163,15 +190,24 @@ class EvalHarnessLM(LM):
                 continue
 
             full_ids = ctx_ids + cont_ids
+            # Add extra check
+            if len(full_ids) >= self.max_seq_len:
+                full_ids = full_ids[:self.max_seq_len - 1]
+
             tokens = torch.tensor([full_ids], device=self.device, dtype=torch.long)
 
-            # Patching
-            patch_lengths, _ = self.patcher.patch(tokens, include_next_token=False)
+            # Patching — use CPU tokens for patcher to avoid device conflicts
+            tokens_cpu = tokens.cpu()
+            patch_lengths, _ = self.patcher.patch(tokens_cpu, include_next_token=True)
             if patch_lengths is not None:
+                # Verify patch count doesn't exceed limit
+                if patch_lengths.size(1) >= self.max_seq_len:
+                    logger.warning(f"Patch count {patch_lengths.size(1)} exceeds max {self.max_seq_len}, skipping")
+                    results.append((0.0, False))
+                    continue
                 patch_lengths = patch_lengths.to(self.device)
 
             with torch.no_grad():
-                # logits: [1, seq_len, vocab_size]
                 logits = self.model(tokens, patch_lengths=patch_lengths)
 
             # Continuation is predicted starting from the last context token position.
@@ -212,7 +248,9 @@ class EvalHarnessLM(LM):
             tokens_list = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
             tokens = torch.tensor([tokens_list], device=self.device, dtype=torch.long)
 
-            patch_lengths, _ = self.patcher.patch(tokens, include_next_token=False)
+            # Patching — use CPU tokens for patcher to avoid device conflicts
+            tokens_cpu = tokens.cpu()
+            patch_lengths, _ = self.patcher.patch(tokens_cpu, include_next_token=True)
             if patch_lengths is not None:
                 patch_lengths = patch_lengths.to(self.device)
 

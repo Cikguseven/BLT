@@ -90,13 +90,7 @@ def calculate_entropies(
     with grad_context, device_ctx:
         entropies = []
         preds = []
-        if hasattr(entropy_model, "config") and hasattr(entropy_model.config, "max_position_embeddings"):
-            max_length = entropy_model.config.max_position_embeddings
-        elif hasattr(entropy_model, "config") and hasattr(entropy_model.config, "n_positions"):
-            max_length = entropy_model.config.n_positions
-        else:
-            max_length = getattr(entropy_model, "max_length", 8192)
-        max_length = min(max_length, 8192)
+        max_length = getattr(entropy_model, "max_length", 1024)
         batch_numel = max_length * patching_batch_size
         splits = torch.split(tokens.flatten(), batch_numel)
         for split in splits:
@@ -107,55 +101,43 @@ def calculate_entropies(
                 split = split.to(device)
 
             # Reshape split to match model expectations [Batch, Seq]
+            # Since we iterate over flattened tokens, we need to batch them up into max_length chunks.
+            # Handle potential uneven last chunk.
             original_len = split.shape[0]
+            rows = original_len // max_length
+            remainder = original_len % max_length
 
-            # Handle very short sequences that don't need batching
-            if original_len <= max_length:
-                # Pad to max_length for model input
-                pad_len = max_length - original_len
-                input_split = F.pad(split, (0, pad_len), value=0).unsqueeze(0)
+            input_split = split
+            if remainder != 0:
+                pad_len = max_length - remainder
+                input_split = F.pad(input_split, (0, pad_len), value=0)
+                rows += 1
 
-                pred = entropy_model(input_split)
-                ent = entropy(pred)
+            input_split = input_split.view(rows, max_length)
 
-                # Remove padding and batch dimension
-                ent_flat = ent.squeeze(0)[:original_len]
-                pred_flat = pred.squeeze(0)[:original_len]
-            else:
-                # Original logic for longer sequences
-                rows = original_len // max_length
-                remainder = original_len % max_length
+            pred = entropy_model(input_split)
+            ent = entropy(pred)
 
-                input_split = split
-                if remainder != 0:
-                    pad_len = max_length - remainder
-                    input_split = F.pad(input_split, (0, pad_len), value=0)
-                    rows += 1
+            # Restore flattened shape and remove padding
+            ent_flat = ent.reshape(-1)
+            pred_flat = pred.reshape(-1, pred.size(-1))
 
-                input_split = input_split.view(rows, max_length)
+            if remainder != 0:
+                ent_flat = ent_flat[:original_len]
+                pred_flat = pred_flat[:original_len]
 
-                pred = entropy_model(input_split)
-                ent = entropy(pred)
-
-                # Restore flattened shape and remove padding
-                ent_flat = ent.reshape(-1)
-                pred_flat = pred.reshape(-1, pred.size(-1))
-
-                if remainder != 0:
-                    ent_flat = ent_flat[:original_len]
-                    pred_flat = pred_flat[:original_len]
-
-            # Move back to the original device to avoid cross-device issues downstream
-            entropies.append(ent_flat.to(tokens.device))
-            preds.append(pred_flat.to(tokens.device))
+            entropies.append(ent_flat)
+            preds.append(pred_flat)
 
 
         concat_entropies = torch.cat(entropies, dim=0)
-        concat_preds = torch.cat(preds, dim=0)
-
         concat_entropies = concat_entropies.reshape(tokens.shape)
-        concat_preds = concat_preds.reshape(tokens.shape[0], -1)
+        concat_preds = torch.cat(preds, dim=0)
+        concat_preds = concat_preds.reshape(tokens.shape[0], tokens.shape[1], -1)
 
+    # Move results back to the same device as input tokens
+    concat_entropies = concat_entropies.to(tokens.device)
+    concat_preds = concat_preds.to(tokens.device)
     return concat_entropies, concat_preds
 
 
@@ -212,15 +194,8 @@ def patch_start_mask_global_and_monotonicity(entropies, t, t_add=0):
 
 
 def patch_start_ids_from_patch_start_mask(patch_start_mask):
-    patch_start_mask = patch_start_mask.contiguous()
     bs, trunc_seq_len = patch_start_mask.shape
-
-    if trunc_seq_len == 0:
-        return torch.zeros((bs, 0), dtype=torch.long, device=patch_start_mask.device)
-
-    # if patch_start_mask.device.type == "cuda":
-    #     torch.cuda.synchronize()  # Ensure all previous ops complete
-    max_patches = patch_start_mask.sum(dim=1).max().item()
+    max_patches = patch_start_mask.sum(dim=1).max()
     if max_patches == 0:
         patch_start_ids = torch.full(
             (bs, trunc_seq_len),
@@ -342,7 +317,7 @@ def apply_bpe_patcher(tokens, bpe_patcher, patching_batch_size, device=None):
             bpe_patcher, device
         )  # Get entropy model to right rank device.
         bpe_patching_mask = []
-        max_length = getattr(bpe_patcher, "max_length", 8192)
+        max_length = getattr(bpe_patcher, "max_length", 1024)
         batch_numel = max_length * patching_batch_size
         splits = torch.split(tokens.flatten(), batch_numel)
         for split in splits:
@@ -420,18 +395,9 @@ def find_entropy_patch_start_ids(
     preds_truncation_len = first_ids.shape[
         1
     ]  # remove the first preds because they will be start of patches.
-
-    # Handle very short sequences (e.g., <= 1 token after truncation)
-    if seq_len <= preds_truncation_len:
-        return first_ids[:, :min(seq_len + int(include_next_token), 2)]
-
     entropies = entropies[:, 1:]
     if threshold is None:
-        num_patches = max(1, seq_len // patch_size)
-        # Clamp num_patches to avoid topk error on very short sequences
-        num_patches = min(num_patches, entropies.size(1))
-        if num_patches <= 2:
-            return first_ids
+        num_patches = seq_len // patch_size
         patch_start_ids = entropies.topk(num_patches - 2, dim=1).indices
         patch_start_ids = patch_start_ids.sort(dim=1).values
     else:
@@ -640,7 +606,6 @@ class Patcher:
             if self.log_time:
                 self.log["calculate_entropies"] += time.time() - s
                 s = time.time()
-            # scores = scores.float().contiguous()
             patch_start_ids = find_entropy_patch_start_ids(
                 scores,
                 self.patch_size,
