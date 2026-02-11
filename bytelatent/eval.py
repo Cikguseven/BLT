@@ -2,7 +2,6 @@
 
 import json
 import logging
-import math
 import os
 import sys
 from datetime import datetime
@@ -20,33 +19,16 @@ from bytelatent.args import EvalArgs
 from bytelatent.checkpoint import consolidate_checkpoints
 from bytelatent.config_parser import parse_args_to_pydantic_model
 from bytelatent.data.file_util import get_fs
-from bytelatent.data.iterators.arrow_iterator import ArrowFileIterator
-from bytelatent.data.iterators.limit_iterator import LimitIterator
-from bytelatent.data.iterators.packing_iterator import (
-    PackingArgs,
-    PackingIterator
-)
-from bytelatent.data.iterators.preprocess_iterator import PreprocessIterator
-from bytelatent.data.iterators.sequence_iterator import (
-    SequenceIterator,
-    SequencePackingArgs,
-)
-from bytelatent.data.patcher import PatcherArgs
 from bytelatent.distributed import (
     DistributedArgs,
-    dist_sum,
     get_global_rank,
     get_world_size,
     setup_torch_distributed,
-    to_py_num,
 )
 from bytelatent.generate import (
     load_consolidated_model_and_tokenizer,
 )
 from bytelatent.generate_blt import generate_nocache
-from bytelatent.model.blt import ByteLatentTransformer
-from bytelatent.blt_tokenizers.build_tokenizer import TokenizerArgs
-from bytelatent.transformer import LMTransformer
 
 logger = logging.getLogger()
 
@@ -110,55 +92,30 @@ class EvalHarnessLM(LM):
             top_k = gen_args.get("top_k", 0)
             until = gen_args.get("until", [])
 
-            max_gen_len = gen_args.get("max_length", 1024)
+            max_gen_len = gen_args.get("max_tokens", 8192)
 
-            # Use the model's max_seqlen to derive a safe max_prompt_len.
-            # The global transformer operates on patches; with entropy patching
-            # the average patch size is ~patch_size bytes.  We leave headroom
-            # for generation tokens and keep the prompt within what the model
-            # can handle.
-            avg_patch_size = max(1, int(self.patcher.patch_size))
-            max_byte_budget = (self.max_seq_len - 10) * avg_patch_size  # Extra safety margin
-            safe_max_prompt_len = max(avg_patch_size, max_byte_budget - max_gen_len * avg_patch_size)
+            generated_tokens_list = generate_nocache(
+                prompts=list(prompts),
+                model=self.model,
+                tokenizer=self.tokenizer,
+                patcher=self.patcher,
+                max_gen_len=max_gen_len,
+                use_sampling=use_sampling,
+                temp=temp_val,
+                top_k=top_k,
+                top_p=top_p,
+                remove_prompts=True
+            )
 
-            for idx, prompt_text in zip(indices, prompts):
-                try:
-                    # Truncate prompt if necessary
-                    prompt_bytes = self.tokenizer.encode(prompt_text, add_bos=False, add_eos=False)
-                    if len(prompt_bytes) > safe_max_prompt_len:
-                        prompt_bytes = prompt_bytes[-safe_max_prompt_len:]
-                        prompt_text = self.tokenizer.decode(prompt_bytes)
-
-                    generated_tokens_list = generate_nocache(
-                        prompts=[prompt_text],
-                        model=self.model,
-                        tokenizer=self.tokenizer,
-                        patcher=self.patcher,
-                        max_prompt_len=safe_max_prompt_len,
-                        max_gen_len=max_gen_len,
-                        use_sampling=use_sampling,
-                        temp=temp_val,
-                        top_k=top_k,
-                        top_p=top_p,
-                        remove_prompts=True
-                    )
-                    text = self.tokenizer.decode(generated_tokens_list[0])
-
-                    min_pos = len(text)
-                    for stop_seq in until:
-                        pos = text.find(stop_seq)
-                        if pos != -1 and pos < min_pos:
-                            min_pos = pos
-
-                    if min_pos < len(text):
-                        text = text[:min_pos]
-
-                    results[idx] = text
-                except Exception as e:
-                    logger.warning(f"Generation failed for prompt {idx}: {e}", exc_info=True)
-                    results[idx] = ""
+            for idx, ids in zip(indices, generated_tokens_list):
+                text = self.tokenizer.decode(ids)
+                for e in until:
+                    if e in text:
+                        text = text.split(e)[0]
+                results[idx] = text
 
         return results
+
 
     def loglikelihood(self, requests: list[Instance]) -> list[tuple[float, bool]]:
         results = []
@@ -347,14 +304,34 @@ def launch_eval(eval_args: EvalArgs):
         metric_log_path = os.path.join(eval_args.metric_log_dir, "metrics.eval.jsonl")
 
         logger.info(f"Writing metric logs to {metric_log_path}")
+
+        # Ensure directory exists
+        fs.mkdirs(eval_args.metric_log_dir, exist_ok=True)
+
         timestamp: dict[str, int | str] = {
             "created_at": datetime.utcnow().isoformat(),
         }
         if eval_args.global_step is not None:
             timestamp["global_step"] = eval_args.global_step
-        with fs.open(metric_log_path, mode="a") as f:
-            f.write(json.dumps(timestamp | results, default=str) + "\n")
-            f.flush()
+
+        try:
+            try:
+                with fs.open(metric_log_path, "a") as f:  # Remove mode= keyword
+                    f.write(json.dumps(timestamp | results, default=str) + "\n")
+                    f.flush()
+            except (KeyError, TypeError):
+                # fs.open might not support mode as kwarg, try positional
+                with fs.open(metric_log_path, "a") as f:
+                    f.write(json.dumps(timestamp | results, default=str) + "\n")
+                    f.flush()
+        except Exception as e:
+            logger.warning(f"Failed to write metrics to {metric_log_path}: {e}")
+            # Fallback: write to dump_dir instead
+            fallback_path = os.path.join(dump_dir, "metrics.eval.jsonl")
+            logger.info(f"Writing metrics to fallback location: {fallback_path}")
+            with fs.open(fallback_path, "w") as f:
+                f.write(json.dumps(timestamp | results, default=str) + "\n")
+
 
 def main():
     eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="/home/kieron/fyp/blt/apps/main/configs/eval.yaml")

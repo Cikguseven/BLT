@@ -28,9 +28,8 @@ harness:
           - "\nclass"
           - "\ndef"
           - "\n#"
-          - "[DONE]"
-          - "\n[DONE]"
-        max_length: 1024
+          - "\n\n\n"
+        max_length: 512
     # - task: boolq
     #   dataset_kwargs:
     #     trust_remote_code: true
