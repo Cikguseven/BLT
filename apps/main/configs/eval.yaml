@@ -2,7 +2,7 @@ ckpt_dir: "/home/kieron/fyp/blt/hf-weights/blt_1b"
 dump_dir: "/home/kieron/fyp/blt/dump-dir"
 entropy_ckpt_dir: "/home/kieron/fyp/blt/hf-weights/entropy_model"
 generator:
-  max_tokens: 1024
+  max_tokens: 2048
   dtype: bf16
   temperature: 0.0
   top_p: 0.95
@@ -24,12 +24,7 @@ harness:
     #     max_length: 2048
     - task: humaneval
       generation_kwargs:
-        until:
-          - "\nclass"
-          - "\ndef"
-          - "\n#"
-          - "\n\n\n"
-        max_length: 512
+        max_length: 1024
     # - task: boolq
     #   dataset_kwargs:
     #     trust_remote_code: true

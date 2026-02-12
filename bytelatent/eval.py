@@ -92,27 +92,49 @@ class EvalHarnessLM(LM):
             top_k = gen_args.get("top_k", 0)
             until = gen_args.get("until", [])
 
-            max_gen_len = gen_args.get("max_tokens", 8192)
+            # Get max_gen_len from generation_kwargs - use 'max_length' from gen_args
+            max_gen_len = gen_args.get("max_length", 1024)
 
-            generated_tokens_list = generate_nocache(
-                prompts=list(prompts),
-                model=self.model,
-                tokenizer=self.tokenizer,
-                patcher=self.patcher,
-                max_gen_len=max_gen_len,
-                use_sampling=use_sampling,
-                temp=temp_val,
-                top_k=top_k,
-                top_p=top_p,
-                remove_prompts=True
-            )
+            # Ensure we don't exceed model's max sequence length
+            # Reserve space for generation and safety margin
+            max_prompt_len = max(1, self.max_seq_len - max_gen_len - 10)
 
-            for idx, ids in zip(indices, generated_tokens_list):
-                text = self.tokenizer.decode(ids)
-                for e in until:
-                    if e in text:
-                        text = text.split(e)[0]
-                results[idx] = text
+            logger.info(f"Generating for {len(prompts)} prompts with max_gen_len={max_gen_len}, max_prompt_len={max_prompt_len}")
+
+            try:
+                generated_tokens_list = generate_nocache(
+                    prompts=list(prompts),
+                    model=self.model,
+                    tokenizer=self.tokenizer,
+                    patcher=self.patcher,
+                    max_prompt_len=max_prompt_len,
+                    max_gen_len=max_gen_len,
+                    use_sampling=use_sampling,
+                    temp=temp_val,
+                    top_k=top_k,
+                    top_p=top_p,
+                    remove_prompts=True
+                )
+
+                for idx, ids in zip(indices, generated_tokens_list):
+                    text = self.tokenizer.decode(ids)
+
+                    # Apply until stopping criteria
+                    for stop_str in until:
+                        if stop_str in text:
+                            text = text.split(stop_str)[0]
+
+                    results[idx] = text
+
+                    # Log first few generations for debugging
+                    if idx < 3:
+                        logger.info(f"Generated for prompt {idx}: {text[:200]}...")
+
+            except Exception as e:
+                logger.error(f"Error during generation: {e}", exc_info=True)
+                # Fill with empty strings on error
+                for idx in indices:
+                    results[idx] = ""
 
         return results
 
@@ -121,110 +143,120 @@ class EvalHarnessLM(LM):
         results = []
         for req in requests:
             prompt, continuation = req.args
-            ctx_ids = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
-            cont_ids = self.tokenizer.encode(continuation, add_bos=False, add_eos=False)
 
-            # If there's no continuation, define loglikelihood=0 and greedy=True
-            if len(cont_ids) == 0:
-                results.append((0.0, True))
-                continue
+            try:
+                ctx_ids = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
+                cont_ids = self.tokenizer.encode(continuation, add_bos=False, add_eos=False)
 
-            # Use max_seq_len - 1 as absolute limit to prevent off-by-one errors
-            max_total_len = self.max_seq_len - 1
+                # If there's no continuation, define loglikelihood=0 and greedy=True
+                if len(cont_ids) == 0:
+                    results.append((0.0, True))
+                    continue
 
-            if len(cont_ids) >= max_total_len:
-                cont_ids = cont_ids[:max(1, max_total_len - 1)]
+                # Use max_seq_len - 1 as absolute limit to prevent off-by-one errors
+                max_total_len = self.max_seq_len - 1
 
-            ctx_budget = max_total_len - len(cont_ids)
-            ctx_budget = max(1, ctx_budget)
+                if len(cont_ids) >= max_total_len:
+                    cont_ids = cont_ids[:max(1, max_total_len - 1)]
 
-            if len(ctx_ids) > ctx_budget:
-                ctx_ids = ctx_ids[-ctx_budget:]
+                ctx_budget = max_total_len - len(cont_ids)
+                ctx_budget = max(1, ctx_budget)
 
-            # (Defensive) if encode ever returned empty, skip rather than crash kernels
-            if len(ctx_ids) == 0:
-                results.append((0.0, False))
-                continue
+                if len(ctx_ids) > ctx_budget:
+                    ctx_ids = ctx_ids[-ctx_budget:]
 
-            full_ids = ctx_ids + cont_ids
-            # Add extra check
-            if len(full_ids) >= self.max_seq_len:
-                full_ids = full_ids[:self.max_seq_len - 1]
-
-            tokens = torch.tensor([full_ids], device=self.device, dtype=torch.long)
-
-            # Patching — use CPU tokens for patcher to avoid device conflicts
-            tokens_cpu = tokens.cpu()
-            patch_lengths, _ = self.patcher.patch(tokens_cpu, include_next_token=True)
-            if patch_lengths is not None:
-                # Verify patch count doesn't exceed limit
-                if patch_lengths.size(1) >= self.max_seq_len:
-                    logger.warning(f"Patch count {patch_lengths.size(1)} exceeds max {self.max_seq_len}, skipping")
+                # (Defensive) if encode ever returned empty, skip rather than crash kernels
+                if len(ctx_ids) == 0:
                     results.append((0.0, False))
                     continue
-                patch_lengths = patch_lengths.to(self.device)
 
-            with torch.no_grad():
-                logits = self.model(tokens, patch_lengths=patch_lengths)
+                full_ids = ctx_ids + cont_ids
+                # Add extra check
+                if len(full_ids) >= self.max_seq_len:
+                    full_ids = full_ids[:self.max_seq_len - 1]
 
-            # Continuation is predicted starting from the last context token position.
-            start_logit_idx = len(ctx_ids) - 1
-            cont_len = len(cont_ids)
-            end_logit_idx = start_logit_idx + cont_len
+                tokens = torch.tensor([full_ids], device=self.device, dtype=torch.long)
 
-            # Clamp to what the model actually returned (extra safety)
-            end_logit_idx = min(end_logit_idx, logits.size(1))
-            cont_len = min(cont_len, end_logit_idx - start_logit_idx)
+                # Patching — use CPU tokens for patcher to avoid device conflicts
+                tokens_cpu = tokens.cpu()
+                patch_lengths, _ = self.patcher.patch(tokens_cpu, include_next_token=True)
+                if patch_lengths is not None:
+                    # Verify patch count doesn't exceed limit
+                    if patch_lengths.size(1) >= self.max_seq_len:
+                        logger.warning(f"Patch count {patch_lengths.size(1)} exceeds max {self.max_seq_len}, skipping")
+                        results.append((0.0, False))
+                        continue
+                    patch_lengths = patch_lengths.to(self.device)
 
-            if cont_len <= 0:
+                with torch.no_grad():
+                    logits = self.model(tokens, patch_lengths=patch_lengths)
+
+                # Continuation is predicted starting from the last context token position.
+                start_logit_idx = len(ctx_ids) - 1
+                cont_len = len(cont_ids)
+                end_logit_idx = start_logit_idx + cont_len
+
+                # Clamp to what the model actually returned (extra safety)
+                end_logit_idx = min(end_logit_idx, logits.size(1))
+                cont_len = min(cont_len, end_logit_idx - start_logit_idx)
+
+                if cont_len <= 0:
+                    results.append((0.0, False))
+                    continue
+
+                relevant_logits = logits[0, start_logit_idx:end_logit_idx, :]
+                target_tokens = tokens[0, len(ctx_ids) : len(ctx_ids) + cont_len]
+
+                # Extra guard against any mismatch (prevents CUDA asserts)
+                if relevant_logits.size(0) != target_tokens.numel():
+                    n = min(relevant_logits.size(0), target_tokens.numel())
+                    relevant_logits = relevant_logits[:n, :]
+                    target_tokens = target_tokens[:n]
+
+                loss = F.cross_entropy(relevant_logits, target_tokens, reduction="sum")
+
+                greedy_tokens = relevant_logits.argmax(dim=-1)
+                is_greedy = (greedy_tokens == target_tokens).all().item()
+
+                results.append((-loss.item(), is_greedy))
+
+            except Exception as e:
+                logger.error(f"Error in loglikelihood: {e}", exc_info=True)
                 results.append((0.0, False))
-                continue
-
-            relevant_logits = logits[0, start_logit_idx:end_logit_idx, :]
-            target_tokens = tokens[0, len(ctx_ids) : len(ctx_ids) + cont_len]
-
-            # Extra guard against any mismatch (prevents CUDA asserts)
-            if relevant_logits.size(0) != target_tokens.numel():
-                n = min(relevant_logits.size(0), target_tokens.numel())
-                relevant_logits = relevant_logits[:n, :]
-                target_tokens = target_tokens[:n]
-
-            loss = F.cross_entropy(relevant_logits, target_tokens, reduction="sum")
-
-            greedy_tokens = relevant_logits.argmax(dim=-1)
-            is_greedy = (greedy_tokens == target_tokens).all().item()
-
-            results.append((-loss.item(), is_greedy))
 
         return results
 
     def loglikelihood_rolling(self, requests: list[Instance]) -> list[float]:
         results = []
         for req in requests:
-            prompt = req.args[0]
-            tokens_list = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
-            tokens = torch.tensor([tokens_list], device=self.device, dtype=torch.long)
+            try:
+                prompt = req.args[0]
+                tokens_list = self.tokenizer.encode(prompt, add_bos=True, add_eos=False)
+                tokens = torch.tensor([tokens_list], device=self.device, dtype=torch.long)
 
-            # Patching — use CPU tokens for patcher to avoid device conflicts
-            tokens_cpu = tokens.cpu()
-            patch_lengths, _ = self.patcher.patch(tokens_cpu, include_next_token=True)
-            if patch_lengths is not None:
-                patch_lengths = patch_lengths.to(self.device)
+                # Patching — use CPU tokens for patcher to avoid device conflicts
+                tokens_cpu = tokens.cpu()
+                patch_lengths, _ = self.patcher.patch(tokens_cpu, include_next_token=True)
+                if patch_lengths is not None:
+                    patch_lengths = patch_lengths.to(self.device)
 
-            with torch.no_grad():
-                logits = self.model(tokens, patch_lengths=patch_lengths)
+                with torch.no_grad():
+                    logits = self.model(tokens, patch_lengths=patch_lengths)
 
-            shift_logits = logits[0, :-1, :].contiguous()
-            shift_labels = tokens[0, 1:].contiguous()
+                shift_logits = logits[0, :-1, :].contiguous()
+                shift_labels = tokens[0, 1:].contiguous()
 
-            loss = F.cross_entropy(shift_logits, shift_labels, reduction="sum")
-            results.append(-loss.item())
+                loss = F.cross_entropy(shift_logits, shift_labels, reduction="sum")
+                results.append(-loss.item())
+
+            except Exception as e:
+                logger.error(f"Error in loglikelihood_rolling: {e}", exc_info=True)
+                results.append(0.0)
 
         return results
 
 
 def launch_eval(eval_args: EvalArgs):
-    assert eval_args.dump_dir is not None
     assert eval_args.ckpt_dir is not None
 
     timestamp = datetime.now().strftime("%b%d-%H%M")
@@ -269,7 +301,6 @@ def launch_eval(eval_args: EvalArgs):
     model, tokenizer, train_cfg = load_consolidated_model_and_tokenizer(
         consolidate_path,
     )
-    # pad_id = 0 if train_cfg.data.tokenizer_args.name == "bytes" else tokenizer.boe_id
     model.eval()
     logger.info("Model loaded")
 
@@ -284,6 +315,7 @@ def launch_eval(eval_args: EvalArgs):
         assert eval_args.harness is not None
         # Instantiate modified EvalHarnessLM
         wrap = EvalHarnessLM(model, tokenizer, patcher)
+        logger.info("Starting evaluation with lm-eval harness")
         # Add confirm_run_unsafe_code=True here
         task_results = simple_evaluate(
             wrap,
@@ -291,9 +323,6 @@ def launch_eval(eval_args: EvalArgs):
             confirm_run_unsafe_code=True
         )
     results = {"tasks": task_results}
-    # TODO: Serial and Parallel yield slightly different number of bytes, debug this later,
-    # leaving this log statement here to help with that.
-    # logging.info("Rank: %s Results: %s", world_rank, results)
 
     if get_global_rank() == 0:
         with fs.open(os.path.join(dump_dir, "results.json"), "w") as f:
@@ -316,17 +345,15 @@ def launch_eval(eval_args: EvalArgs):
 
         try:
             try:
-                with fs.open(metric_log_path, "a") as f:  # Remove mode= keyword
+                with fs.open(metric_log_path, "a") as f:
                     f.write(json.dumps(timestamp | results, default=str) + "\n")
                     f.flush()
             except (KeyError, TypeError):
-                # fs.open might not support mode as kwarg, try positional
                 with fs.open(metric_log_path, "a") as f:
                     f.write(json.dumps(timestamp | results, default=str) + "\n")
                     f.flush()
         except Exception as e:
             logger.warning(f"Failed to write metrics to {metric_log_path}: {e}")
-            # Fallback: write to dump_dir instead
             fallback_path = os.path.join(dump_dir, "metrics.eval.jsonl")
             logger.info(f"Writing metrics to fallback location: {fallback_path}")
             with fs.open(fallback_path, "w") as f:
