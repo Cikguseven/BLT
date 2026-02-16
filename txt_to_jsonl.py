@@ -3,37 +3,31 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 
-def count_lines_in_files(file_path):
-    """Helper to get total line count"""
-    total = 0
-    print("Calculating total lines...")
-    with open(file_path, "rb") as f:
-        total += sum(1 for _ in f)
-    return total
 
-def txt_to_jsonl_split(input_file, output_dir, chunk_size=100_000):
+def count_lines_in_file(file_path):
+    """Helper to get line count for a single file"""
+    with open(file_path, "rb") as f:
+        return sum(1 for _ in f)
+
+
+def process_single_file(input_file, output_dir, chunk_size=100_000):
+    """Process a single txt file into chunked JSONL files"""
     input_file = Path(input_file)
     output_dir = Path(output_dir)
 
-    if not input_file.exists():
-        print(f"Input file {input_file} does not exist.")
-        return
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Configuration for output filenames
-    stem = "combined"
+    # Use the input filename (without extension) as the stem for output files
+    stem = input_file.stem
     suffix = ".jsonl"
 
-    total_lines = count_lines_in_files(input_file)
+    total_lines = count_lines_in_file(input_file)
 
     current_chunk_idx = 0
     lines_in_current_chunk = 0
     f_out = None
 
     try:
-        with tqdm(total=total_lines, unit='lines', desc="Converting") as pbar:
-           with input_file.open("r", encoding="utf-8", errors="ignore") as f_in:
+        with tqdm(total=total_lines, unit='lines', desc=f"Converting {input_file.name}") as pbar:
+            with input_file.open("r", encoding="utf-8", errors="ignore") as f_in:
                 for line in f_in:
                     pbar.update(1)
 
@@ -63,9 +57,39 @@ def txt_to_jsonl_split(input_file, output_dir, chunk_size=100_000):
         if f_out:
             f_out.close()
 
+
+def txt_dir_to_jsonl_split(input_dir, output_dir, chunk_size=100_000, pattern="*.txt"):
+    """Process all matching files in input_dir and split them into JSONL chunks"""
+    input_dir = Path(input_dir)
+    output_dir = Path(output_dir)
+
+    if not input_dir.exists():
+        print(f"Input directory {input_dir} does not exist.")
+        return
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Find all files matching the pattern
+    input_files = sorted(input_dir.glob(pattern))
+
+    if not input_files:
+        print(f"No files matching pattern '{pattern}' found in {input_dir}")
+        return
+
+    print(f"Found {len(input_files)} file(s) to process")
+
+    # Process each file
+    for input_file in input_files:
+        print(f"\nProcessing: {input_file.name}")
+        process_single_file(input_file, output_dir, chunk_size)
+
+    print(f"\nAll done! Output written to {output_dir}")
+
+
 if __name__ == "__main__":
-    txt_to_jsonl_split(
-        input_file="/home/kieron/fyp/data/mc4_SEA_1000000_sentences_temp_0.3/combined.txt",
-        output_dir="/home/kieron/fyp/data/mc4_SEA_1000000_sentences_temp_0.3/combined",
-        chunk_size=100_000
+    txt_dir_to_jsonl_split(
+        input_dir="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/fineweb2_SEA_100M_sentences",
+        output_dir="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/fineweb2_SEA_100M_sentences_blt",
+        chunk_size=400_000,
+        pattern="*.txt"  # Change to "*" for all files, or "combined*.txt" for specific pattern
     )

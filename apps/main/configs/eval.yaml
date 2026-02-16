@@ -1,6 +1,6 @@
-ckpt_dir: "/home/kieron/fyp/blt/hf-weights/blt_1b"
-dump_dir: "/home/kieron/fyp/blt/dump-dir"
-entropy_ckpt_dir: "/home/kieron/fyp/blt/hf-weights/entropy_model"
+ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/blt_7b"
+dump_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/dump-dir"
+entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/entropy_model"
 generator:
   max_tokens: 2048
   dtype: bf16
@@ -13,15 +13,9 @@ harness:
     # - arc_easy
     # - arc_challenge
     # - mmlu
-    # - task: mbpp
-    #   generation_kwargs:
-    #     until:
-    #       - "\nclass"
-    #       - "\ndef"
-    #       - "\n#"
-    #       - "[DONE]"
-    #       - "\n[DONE]"
-    #     max_length: 2048
+    - task: mbpp
+      generation_kwargs:
+        max_length: 1024
     - task: humaneval
       generation_kwargs:
         max_length: 1024
