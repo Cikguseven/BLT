@@ -118,28 +118,42 @@ class EvalHarnessLM(LM):
             # Get max_gen_len from generation_kwargs - use 'max_length' from gen_args
             max_gen_len = gen_args.get("max_length", 1024)
 
-            # Ensure we don't exceed model's max sequence length
-            # Reserve space for generation and safety margin
-            max_prompt_len = max(1, self.max_seq_len - max_gen_len - 10)
+            # Be much more conservative with prompt length to avoid CUDA OOB errors.
+            # BLT models have patching overhead, so we need a larger safety margin.
+            # Use at most half the sequence length for the prompt, and cap gen_len too.
+            max_gen_len = min(max_gen_len, self.max_seq_len // 2)
+            max_prompt_len = max(1, self.max_seq_len - max_gen_len - 128)
 
-            logger.info(f"Generating for {len(prompts)} prompts with max_gen_len={max_gen_len}, max_prompt_len={max_prompt_len}")
+            logger.info(f"Generating for {len(prompts)} prompts with max_gen_len={max_gen_len}, max_prompt_len={max_prompt_len}, max_seq_len={self.max_seq_len}")
 
-            try:
-                generated_tokens_list = generate_nocache(
-                    prompts=list(prompts),
-                    model=self.model,
-                    tokenizer=self.tokenizer,
-                    patcher=self.patcher,
-                    max_prompt_len=max_prompt_len,
-                    max_gen_len=max_gen_len,
-                    use_sampling=use_sampling,
-                    temp=temp_val,
-                    top_k=top_k,
-                    top_p=top_p,
-                    remove_prompts=True
-                )
+            # Truncate prompts that are too long (by bytes) before passing to generate
+            truncated_prompts = []
+            for p in prompts:
+                encoded = self.tokenizer.encode(p, add_bos=False, add_eos=False)
+                if len(encoded) > max_prompt_len:
+                    encoded = encoded[-max_prompt_len:]
+                    p = self.tokenizer.decode(encoded)
+                truncated_prompts.append(p)
 
-                for idx, ids in zip(indices, generated_tokens_list):
+            # Process one prompt at a time to isolate failures
+            for idx, prompt_text in zip(indices, truncated_prompts):
+                try:
+                    torch.cuda.empty_cache()
+                    generated_tokens_list = generate_nocache(
+                        prompts=[prompt_text],
+                        model=self.model,
+                        tokenizer=self.tokenizer,
+                        patcher=self.patcher,
+                        max_prompt_len=max_prompt_len,
+                        max_gen_len=max_gen_len,
+                        use_sampling=use_sampling,
+                        temp=temp_val,
+                        top_k=top_k,
+                        top_p=top_p,
+                        remove_prompts=True
+                    )
+
+                    ids = generated_tokens_list[0]
                     text = self.tokenizer.decode(ids)
 
                     # Apply until stopping criteria
@@ -153,11 +167,15 @@ class EvalHarnessLM(LM):
                     if idx < 3:
                         logger.info(f"Generated for prompt {idx}: {text[:200]}...")
 
-            except Exception as e:
-                logger.error(f"Error during generation: {e}", exc_info=True)
-                # Fill with empty strings on error
-                for idx in indices:
+                except Exception as e:
+                    logger.error(f"Error during generation for prompt {idx}: {e}", exc_info=True)
                     results[idx] = ""
+                    # After a CUDA error, try to reset the state
+                    try:
+                        torch.cuda.synchronize()
+                    except Exception:
+                        pass
+                    torch.cuda.empty_cache()
 
         return results
 

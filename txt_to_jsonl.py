@@ -88,8 +88,8 @@ def txt_dir_to_jsonl_split(input_dir, output_dir, chunk_size=100_000, pattern="*
 
 if __name__ == "__main__":
     txt_dir_to_jsonl_split(
-        input_dir="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/fineweb2_SEA_100M_sentences",
-        output_dir="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/fineweb2_SEA_100M_sentences_blt",
-        chunk_size=400_000,
+        input_dir="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/mc4_SEA_1M_sentences",
+        output_dir="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/mc4_SEA_1M_sentences_blt",
+        chunk_size=1000,
         pattern="*.txt"  # Change to "*" for all files, or "combined*.txt" for specific pattern
     )

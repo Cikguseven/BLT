@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, "/home/kieron/fyp")
+sys.path.insert(0, "/scratch/Projects/CFP-01/CFP01-CF-060/kieron")
 
 import time
 from pathlib import Path
@@ -10,22 +10,21 @@ import torch
 # Set to True to enable testing for each tokenizer
 TOKENIZERS_TO_TEST = {
     "utf8": False,
-    "myte": False,
+    "myte": True,
     "parity_aware_bpe": True,
-    "blt": False,
+    "blt": True,
 }
 
 # Tokenizer file paths
-MYTE_DECOMPOSE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/decompose_map.json"
-MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/merge_map.json"
-MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/mappings_decomposed_filtered/morf_map_mc4_8192_equal.json"
-PARITY_AWARE_BPE_PATH = "/home/kieron/fyp/parity_aware_bpe/90k_byte-level_SEA_1m_equal/tokenizer.json"
-BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/hf-weights/entropy_model"
-BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/tmp/blt-entropy/mc4_SEA_1000000_sentences_temp_point3/checkpoints/0000100000/consolidated"
-BLT_CHECKPOINT_PATH = "/home/kieron/fyp/blt/hf-weights/blt_1b"
+MYTE_DECOMPOSE_MAP_PATH = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/8192_myte_SEA_1m/decompose.json"
+MYTE_MERGE_MAP_PATH = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/8192_myte_SEA_1m/morf_map_mc4_8192.json"
+PARITY_AWARE_BPE_PATH = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/90k_byte-level_SEA_1m/tokenizer.json"
+BLT_ENTROPY_MODEL_DIR = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/entropy_model"
+BLT_ENTROPY_MODEL_DIR = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/blt-entropy/50m_mC4"
+BLT_CHECKPOINT_PATH = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b"
 
 LINES = 1012
-EVAL_DIR = Path("/home/kieron/fyp/data/flores-plus_dev_devtest/")
+EVAL_DIR = Path("/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/flores-plus_dev_devtest")
 
 MYTE_96 = [
     "afr_Latn",
@@ -556,7 +555,7 @@ def main() -> None:
 
     # Write output to file instead of printing
     timestamp = time.strftime("%b%d-%H%M", time.localtime())
-    output_path = Path(f"/home/kieron/fyp/output_tokenizer_eval_{timestamp}.log")
+    output_path = Path(f"/scratch/Projects/CFP-01/CFP01-CF-060/kieron/tokenizer_eval_{timestamp}.log")
     with open(output_path, "w", encoding="utf-8") as f:
         for line in output_lines:
             f.write(line + "\n")

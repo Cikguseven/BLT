@@ -1,11 +1,11 @@
-name: blt_1b
-dump_dir: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b/
+name: blt_1b_olmo2_16
+dump_dir: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b-olmo2-16/
 seed: 42
 debug_dynamo: false
-grad_acc_steps: 1
+grad_acc_steps: 8
 gc_collect_freq: 1000
 probe_freq: null
-steps: 160000
+steps: 18000
 max_steps: null
 optim:
   lr: 0.0004
@@ -14,40 +14,43 @@ optim:
   beta1: 0.9
   beta2: 0.95
   clip: 1.0
-  scheduler: cosine
-  warmup: 500
-  lr_min_ratio: 0.01
+  scheduler: constant
+  warmup: 200 # update
+  lr_min_ratio: 0.1
   cycle_length: 1.0
   cosine_theta: 1.0
   annealing_step: 1000
   decay_fraction: 0.1
   exp_factor: 0.5
 model:
-  dim: 512
-  n_layers: 8
-  head_dim: null
-  n_heads: 8
-  n_kv_heads: null
-  ffn_dim_multiplier: 1.0
+  # OLMo-2-0425-1B architecture (16 layers for ~1.42B params)
+  dim: 2048                    # hidden_size
+  n_layers: 16                 # num_hidden_layers (reduced from 16 to match param count)
+  head_dim: 128                # 2048 / 16 = 128
+  n_heads: 16                  # num_attention_heads
+  n_kv_heads: 16               # num_key_value_heads (no GQA)
+  ffn_dim_multiplier: 2        # Use explicit intermediate_size instead
   multiple_of: 256
-  norm_eps: 1.0e-05
-  rope_theta: 500000.0
+  norm_eps: 1.0e-06            # rms_norm_eps from OLMo-2
+  rope_theta: 500000.0         # From OLMo-2 config
   rope_use_fp32_in_outer_product: true
-  init_base_std: null
+  init_base_std: 0.02
   init_std_factor: current_depth
   max_seqlen: 4096
   attn_impl: xformers
   attn_bias_type: block_causal
   eos_id: 2
-  seed: 42
-  vocab_size: 260
-  weight_tying: false
+  seed: 6198
+  vocab_size: 260              # BLT vocab size
+  weight_tying: false          # tie_word_embeddings: false in OLMo-2
+
+  # BLT-specific parameters (adjusted for single transformer)
   patch_in_forward: true
   dim_token: null
-  dim_global: 2048
-  dim_local_decoder: 1024
-  dim_local_encoder: 1024
-  n_layers_global: 25
+  dim_global: 2048             # Same as dim
+  dim_local_decoder: 1024      # Using single transformer
+  dim_local_encoder: 1024      # Using single transformer
+  n_layers_global: 16          # Same as n_layers
   n_layers_local_decoder: 9
   n_layers_local_encoder: 1
   patch_size: 4.5
@@ -55,7 +58,7 @@ model:
   patching_threshold: 1.335442066192627
   patching_threshold_add: null
   monotonicity: false
-  patching_batch_size: 16
+  patching_batch_size: 32
   patching_device: cuda
   max_patch_length: null
   tie_local_encoder_decoder_logits: false
@@ -98,7 +101,7 @@ model:
   alpha_depth: disabled
   max_length: 256
   norm_affine: true
-  pre_norm: true
+  pre_norm: false
   norm_type: rmsnorm
   dropout: 0.0
   output_size: -1
@@ -130,6 +133,7 @@ model:
   attn_to_keep: all
   pm_size: 0
   full_logging_n_layers: 4
+
 entropy_model: null
 train_entropy_model: false
 distributed:
@@ -158,12 +162,12 @@ env:
   TORCH_NCCL_ASYNC_ERROR_HANDLING: '1'
 checkpoint:
   dump:
-    every: 10000
+    every: 1000
     keep: 1
   eval:
     every: 500000
     keep: -1
-  path: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b/checkpoints/
+  path: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b-olmo2-16/checkpoints/
   init_ckpt_path: null
   continue_training_from_init: false
   s3_profile: null
@@ -179,19 +183,18 @@ logging:
   acc_freq: null
   wandb:
     entity: cikguseven-national-university-of-singapore
-    group: blt_1b_run
-    name: blt_1b_run
-    project: blt_training
+    group: blt_1b_olmo2
+    name: blt_1b_olmo2
+    project: Training
 async_eval_gpus: null
 eval: null
 eval_on_gpus: 8
-
 
 data:
   root_dir: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/data
   sources:
     fineweb2_SEA_100M_sentences_blt: 1.0
-  batch_size: 8
+  batch_size: 16
   seq_len: 4096
   seed: 42
   add_bos: true
