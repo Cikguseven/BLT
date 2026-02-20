@@ -1,8 +1,8 @@
-ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/blt_1b"
-# ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b/"
+# ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/blt_1b"
+ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b-olmo2/checkpoints/0000006000/consolidated/"
 dump_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/dump-dir"
-entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/entropy_model"
-# entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/blt-entropy/50m_mC4"
+# entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/entropy_model"
+entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/blt-entropy/50m_mC4"
 generator:
   max_tokens: 2048
   dtype: bf16
@@ -10,17 +10,13 @@ generator:
   top_p: 0.95
 harness:
   tasks:
-    # - hellaswag
-    # - piqa
-    # - arc_easy
-    # - arc_challenge
-    # - mmlu
+    - hellaswag
+    - piqa
+    - arc_easy
+    - arc_challenge
+    - mmlu
     - task: mbpp
-      # generation_kwargs:
-      #   max_length: 1024
     - task: humaneval
-      # generation_kwargs:
-      #   max_length: 512
     # - task: boolq
     #   dataset_kwargs:
     #     trust_remote_code: true

@@ -1,21 +1,21 @@
-name: blt_1b_olmo2_stage1
-dump_dir: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b-olmo2-stage1/
+name: blt_1b_olmo2_stage2
+dump_dir: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b-olmo2-stage2/
 seed: 42
 debug_dynamo: false
 grad_acc_steps: 8
 gc_collect_freq: 1000
 probe_freq: null
-steps: 18000
+steps: 2000
 max_steps: null
 optim:
-  lr: 0.0004
+  lr: 0.00004
   weight_decay: 0.1
   epsilon: 1.0e-08
   beta1: 0.9
   beta2: 0.95
   clip: 1.0
-  scheduler: constant
-  warmup: 200 # update
+  scheduler: linear
+  warmup: 0
   lr_min_ratio: 0.1
   cycle_length: 1.0
   cosine_theta: 1.0
@@ -167,9 +167,9 @@ checkpoint:
   eval:
     every: 500000
     keep: -1
-  path: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b-olmo2-stage1/checkpoints/
-  init_ckpt_path: null
-  continue_training_from_init: false
+  path: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b-olmo2-stage2/checkpoints/
+  init_ckpt_path: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b-olmo2/checkpoints/0000018000 # Point to Stage 1 checkpoint
+  continue_training_from_init: false # Keep false to reset step counts and scheduler for Stage 2
   s3_profile: null
 profiling:
   run: false
@@ -183,8 +183,8 @@ logging:
   acc_freq: null
   wandb:
     entity: cikguseven-national-university-of-singapore
-    group: blt_1b_olmo2_stage1
-    name: blt_1b_olmo2_stage1
+    group: blt_1b_olmo2_stage2
+    name: blt_1b_olmo2_stage2
     project: Training
 async_eval_gpus: null
 eval: null
@@ -194,7 +194,7 @@ data:
   root_dir: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/data
   sources:
     fineweb2_SEA_100M_sentences_blt: 1.0
-  batch_size: 8
+  batch_size: 16
   seq_len: 4096
   seed: 42
   add_bos: true
