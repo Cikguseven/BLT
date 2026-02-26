@@ -176,3 +176,4 @@ dump-dir*/
 blt-entropy/
 tmp/
 tokenizer/
+blt-entropy-mc4-1M-original/

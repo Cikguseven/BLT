@@ -9,15 +9,15 @@ import torch
 
 TOKENIZERS_TO_TEST = {
     "myte": False,
-    "parity_aware_bpe": False,
-    "blt": True,
+    "parity_aware_bpe": True,
+    "blt": False,
 }
 
 # Tokenizer file paths
 MYTE_DECOMPOSE_MAP_PATH = "/home/kieron/fyp/myte/byte_maps/decompose_map.json"
-MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/mappings_decomposed_filtered/morf_map_mc4_8192_equal.json"
-PARITY_AWARE_BPE_PATH = "/home/kieron/fyp/parity_aware_bpe/90k_byte-level_SEA_1m_equal/tokenizer.json"
-BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/tmp/blt-entropy/mc4_SEA_1000000_sentences_temp_point3/checkpoints/0000100000/consolidated"
+MYTE_MERGE_MAP_PATH = "/home/kieron/fyp/myte/mappings_decomposed_filtered/morf_map_mc4_8192.json"
+PARITY_AWARE_BPE_PATH = "/home/kieron/fyp/parity_aware_bpe/90k_parity-aware_SEA_1m/tokenizer.json"
+BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/blt-entropy-mc4-1M-original"
 BLT_CHECKPOINT_PATH = "/home/kieron/fyp/blt/hf-weights/blt_1b"
 
 LINES = 1012
@@ -51,14 +51,36 @@ def read_lines(fp: Path, max_lines: int) -> List[str]:
                 lines.append(line)
     return lines
 
-def get_unique_myte_tokens(tokenizer: Any, lines: List[str]) -> Set[int]:
+def get_unique_myte_tokens(tokenizer: Any, lines: List[str]) -> Tuple[Set[int], Set[Tuple[int, ...]]]:
+    unique_bytes: Set[int] = set()
+    unique_morphemes: Set[Tuple[int, ...]] = set()
+
     if not lines:
-        return set()
+        return unique_bytes, unique_morphemes
+
     out = tokenizer(lines, padding=False, add_special_tokens=False)
-    unique = set()
+
     for ids in out["input_ids"]:
-        unique.update(ids)
-    return unique
+        # Track every unique byte used
+        unique_bytes.update(ids)
+
+        # Parse the sequence to extract unique multibyte morphemes
+        i = 0
+        while i < len(ids):
+            b = ids[i]
+            # Check if this byte is a MYTE morpheme leading byte (0x42 to 0x5A)
+            if 66 <= b <= 90:
+                morpheme_chunk = [b]
+                i += 1
+                # Collect any standard UTF-8 continuation bytes (0x80 to 0xBF)
+                while i < len(ids) and 128 <= ids[i] <= 191:
+                    morpheme_chunk.append(ids[i])
+                    i += 1
+                unique_morphemes.add(tuple(morpheme_chunk))
+            else:
+                i += 1
+
+    return unique_bytes, unique_morphemes
 
 def get_unique_parity_tokens(tokenizer: Any, lines: List[str]) -> Set[int]:
     if not lines:
@@ -147,7 +169,8 @@ def main() -> None:
     output_lines.append(f"Enabled tokenizers: {', '.join(sorted(enabled))}")
 
     # Global sets to track unique tokens/patches across ALL languages
-    global_unique_myte: Set[int] = set()
+    global_unique_myte_bytes: Set[int] = set()
+    global_unique_myte_morphemes: Set[Tuple[int, ...]] = set()
     global_unique_pa_bpe: Set[int] = set()
     global_unique_blt_patches: Set[Tuple[int, ...]] = set()
 
@@ -168,9 +191,11 @@ def main() -> None:
 
 
         if "myte" in enabled:
-            unique_tokens = get_unique_myte_tokens(myte_tokenizer, lines)
-            global_unique_myte.update(unique_tokens)
-            output_lines.append(f"MYTE distinct tokens: {len(unique_tokens)}")
+            unique_bytes, unique_morphemes = get_unique_myte_tokens(myte_tokenizer, lines)
+            global_unique_myte_bytes.update(unique_bytes)
+            global_unique_myte_morphemes.update(unique_morphemes)
+            output_lines.append(f"MYTE distinct bytes: {len(unique_bytes)}")
+            output_lines.append(f"MYTE distinct morphemes: {len(unique_morphemes)}")
 
         if "parity_aware_bpe" in enabled:
             unique_tokens = get_unique_parity_tokens(parity_aware_bpe_tokenizer, lines)
@@ -188,7 +213,8 @@ def main() -> None:
     output_lines.append("========================================================")
 
     if "myte" in enabled:
-        output_lines.append(f"MYTE total distinct tokens: {len(global_unique_myte)}")
+        output_lines.append(f"MYTE total distinct bytes: {len(global_unique_myte_bytes)}")
+        output_lines.append(f"MYTE total distinct morphemes: {len(global_unique_myte_morphemes)}")
     if "parity_aware_bpe" in enabled:
         output_lines.append(f"Parity-Aware BPE total distinct tokens: {len(global_unique_pa_bpe)}")
     if "blt" in enabled:
