@@ -12,36 +12,6 @@ harness:
     # - piqa
     # - arc_easy
     # - arc_challenge
-    # - mmlu
-    # - task: mbpp
-    #   generation_kwargs:
-    #     max_length: 1024
-    - task: humaneval
-      generation_kwargs:
-        max_length: 512
-        until:
-          - "\nclass"
-          - "\ndef"
-          - "\n#"
-          - "\nif"
-          - "\nprint"
-    # - task: boolq
-    #   dataset_kwargs:
-    #     trust_remote_code: true
-    # - task: nq_open
-    #   num_fewshot: 5
-    # - task: social_iqa
-    #   dataset_kwargs:
-    #     trust_remote_code: true
-    # - triviaqa
-    # - winogrande
-    # - openbookqa
-    # - race
-    # - commonsense_qa
-    # - coqa
-    # - copa
-    # - gsm8k
-    # - bbh
-    # - mmlu_pro
-# validation:
-#   max_steps: 1000
+    - mmlu
+    # - mbpp
+    # - humaneval

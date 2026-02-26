@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, "/home/kieron/fyp")
+sys.path.insert(0, "/scratch/Projects/CFP-01/CFP01-CF-060/kieron")
 
 import time
 from pathlib import Path
@@ -21,7 +21,7 @@ BLT_ENTROPY_MODEL_DIR = "/home/kieron/fyp/blt/blt-entropy-mc4-1M-original"
 BLT_CHECKPOINT_PATH = "/home/kieron/fyp/blt/hf-weights/blt_1b"
 
 LINES = 1012
-EVAL_DIR = Path("/home/kieron/fyp/data/flores-plus_dev_devtest/")
+EVAL_DIR = Path("/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/flores-plus_dev_devtest")
 
 SEA_11 = [
     "eng_Latn",
@@ -39,6 +39,7 @@ SEA_11 = [
 
 VALID_LANGS = SEA_11
 
+
 def read_lines(fp: Path, max_lines: int) -> List[str]:
     lines: List[str] = []
     with fp.open("r", encoding="utf-8") as f:
@@ -51,10 +52,12 @@ def read_lines(fp: Path, max_lines: int) -> List[str]:
                 lines.append(line)
     return lines
 
-def get_unique_myte_tokens(tokenizer: Any, lines: List[str]) -> Tuple[Set[int], Set[Tuple[int, ...]]]:
-    unique_bytes: Set[int] = set()
-    unique_morphemes: Set[Tuple[int, ...]] = set()
 
+def count_bytes(lines: List[str]) -> int:
+    return sum(len(line.encode("utf-8")) for line in lines)
+
+
+def get_unique_myte_tokens(tokenizer: Any, lines: List[str]) -> Set[int]:
     if not lines:
         return unique_bytes, unique_morphemes
 
@@ -82,6 +85,7 @@ def get_unique_myte_tokens(tokenizer: Any, lines: List[str]) -> Tuple[Set[int], 
 
     return unique_bytes, unique_morphemes
 
+
 def get_unique_parity_tokens(tokenizer: Any, lines: List[str]) -> Set[int]:
     if not lines:
         return set()
@@ -90,6 +94,7 @@ def get_unique_parity_tokens(tokenizer: Any, lines: List[str]) -> Set[int]:
     for enc in encs:
         unique.update(enc.ids)
     return unique
+
 
 def get_unique_blt_patches(tokenizer: Any, patcher: Any, lines: List[str]) -> Set[Tuple[int, ...]]:
     unique_patches = set()
@@ -100,13 +105,11 @@ def get_unique_blt_patches(tokenizer: Any, patcher: Any, lines: List[str]) -> Se
         if not token_ids:
             continue
 
-        # Get patch lengths from the entropy model
         tokens_tensor = torch.tensor([token_ids], dtype=torch.long, device="cuda:0")
         patch_lengths, _ = patcher.patch(tokens_tensor, include_next_token=False)
 
         lengths = patch_lengths.squeeze(0).tolist()
 
-        # Slice the token_ids into actual patch tuples based on the lengths
         start_idx = 0
         for length in lengths:
             patch = tuple(token_ids[start_idx : start_idx + length])
@@ -115,6 +118,7 @@ def get_unique_blt_patches(tokenizer: Any, patcher: Any, lines: List[str]) -> Se
 
     return unique_patches
 
+
 def main() -> None:
     enabled = {k for k, v in TOKENIZERS_TO_TEST.items() if v}
     if not enabled:
@@ -122,7 +126,6 @@ def main() -> None:
 
     print(f"Enabled tokenizers: {', '.join(sorted(enabled))}")
 
-    # Load only used tokenizers
     myte_tokenizer = None
     parity_aware_bpe_tokenizer = None
     blt_tokenizer = None
@@ -137,9 +140,7 @@ def main() -> None:
 
     if "parity_aware_bpe" in enabled:
         from tokenizers import Tokenizer
-        parity_aware_bpe_tokenizer = Tokenizer.from_file(
-            PARITY_AWARE_BPE_PATH
-        )
+        parity_aware_bpe_tokenizer = Tokenizer.from_file(PARITY_AWARE_BPE_PATH)
 
     if "blt" in enabled:
         from bytelatent.generate import load_consolidated_model_and_tokenizer
@@ -168,11 +169,10 @@ def main() -> None:
     output_lines.append(f"Evaluation started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
     output_lines.append(f"Enabled tokenizers: {', '.join(sorted(enabled))}")
 
-    # Global sets to track unique tokens/patches across ALL languages
-    global_unique_myte_bytes: Set[int] = set()
-    global_unique_myte_morphemes: Set[Tuple[int, ...]] = set()
+    global_unique_myte: Set[int] = set()
     global_unique_pa_bpe: Set[int] = set()
     global_unique_blt_patches: Set[Tuple[int, ...]] = set()
+    global_total_bytes: int = 0  # <-- NEW
 
     files_to_process = [
         entry for entry in sorted(EVAL_DIR.iterdir())
@@ -189,6 +189,10 @@ def main() -> None:
 
         output_lines.append(f"\n--- Language: {code} ---")
 
+        # Byte count for this language
+        lang_bytes = count_bytes(lines)           # <-- NEW
+        global_total_bytes += lang_bytes           # <-- NEW
+        output_lines.append(f"Total bytes: {lang_bytes}")  # <-- NEW
 
         if "myte" in enabled:
             unique_bytes, unique_morphemes = get_unique_myte_tokens(myte_tokenizer, lines)
@@ -207,10 +211,11 @@ def main() -> None:
             global_unique_blt_patches.update(unique_patches)
             output_lines.append(f"BLT distinct patches: {len(unique_patches)}")
 
-    # Add global statistics across all sentences
     output_lines.append("\n========================================================")
     output_lines.append("GLOBAL DISTINCT TOKENS/PATCHES (Across all languages & sentences)")
     output_lines.append("========================================================")
+
+    output_lines.append(f"Total bytes (all languages): {global_total_bytes}")  # <-- NEW
 
     if "myte" in enabled:
         output_lines.append(f"MYTE total distinct bytes: {len(global_unique_myte_bytes)}")
@@ -220,14 +225,14 @@ def main() -> None:
     if "blt" in enabled:
         output_lines.append(f"BLT total distinct patches: {len(global_unique_blt_patches)}")
 
-    # Write output to file
     timestamp = time.strftime("%b%d-%H%M", time.localtime())
-    output_path = Path(f"/home/kieron/fyp/output_distinct_tokens_{timestamp}.log")
+    output_path = Path(f"/scratch/Projects/CFP-01/CFP01-CF-060/kieron/output_distinct_tokens_{timestamp}.log")
     with open(output_path, "w", encoding="utf-8") as f:
         for line in output_lines:
             f.write(line + "\n")
 
     print(f"\nFinished. Results written to {output_path}")
+
 
 if __name__ == "__main__":
     main()
