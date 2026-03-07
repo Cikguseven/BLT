@@ -6,6 +6,7 @@ import math
 import os
 import sys
 from datetime import datetime
+import argparse
 
 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -90,13 +91,57 @@ class EvalHarnessLM(LM):
         else:
             self.max_seq_len = 4096
 
+        # Infer max patch sequence length from model config
+        self.max_patch_len = getattr(model, "max_patch_len", None)
+        if self.max_patch_len is None:
+            # Try to find it from model args/config
+            for attr in ("args", "config", "model_args"):
+                cfg = getattr(model, attr, None)
+                if cfg is not None:
+                    self.max_patch_len = getattr(cfg, "max_patch_len", None) or \
+                                         getattr(cfg, "n_max_patches", None)
+                    if self.max_patch_len is not None:
+                        break
+        if self.max_patch_len is None:
+            # Conservative fallback: assume patch_len ~ seq_len / avg_patch_size
+            # For BLT models trained with avg patch size ~4-6 bytes, use seq_len // 4
+            self.max_patch_len = self.max_seq_len // 4
+        logger.info(f"EvalHarnessLM: max_seq_len={self.max_seq_len}, max_patch_len={self.max_patch_len}")
+
+    def _estimate_bytes_per_token(self, text: str, token_ids: list) -> float:
+        """Estimate average bytes per token for a given text sample."""
+        if not token_ids:
+            return 1.0
+        return max(1.0, len(text.encode("utf-8")) / len(token_ids))
+
+    def _safe_max_gen_len(self, prompt_text: str, prompt_ids: list, max_gen_len: int) -> int:
+        """
+        Reduce max_gen_len so that total patch count stays within max_patch_len.
+        High-byte-density scripts (Thai, Chinese, etc.) use ~3-4 bytes/char and
+        produce more patches per token than English.
+        """
+        avg_bytes = self._estimate_bytes_per_token(prompt_text, prompt_ids)
+        # Patches ≈ total_bytes / avg_patch_size (BLT default avg patch ~4 bytes)
+        avg_patch_size = 4.0
+        prompt_patches = int(len(prompt_ids) * avg_bytes / avg_patch_size)
+        remaining_patch_budget = max(1, self.max_patch_len - prompt_patches - 32)  # 32 safety margin
+        # Convert patch budget back to tokens
+        safe_gen_tokens = int(remaining_patch_budget * avg_patch_size / avg_bytes)
+        safe_gen_tokens = max(1, min(max_gen_len, safe_gen_tokens))
+        if safe_gen_tokens < max_gen_len:
+            logger.info(
+                f"Reduced max_gen_len from {max_gen_len} to {safe_gen_tokens} "
+                f"(avg_bytes/tok={avg_bytes:.2f}, prompt_patches≈{prompt_patches}, "
+                f"max_patch_len={self.max_patch_len})"
+            )
+        return safe_gen_tokens
+
     def generate_until(self, requests: list[Instance]) -> list[str]:
         results = [None] * len(requests)
         # Group by generation arguments
         groups = {}
         for i, req in enumerate(requests):
             prompt, gen_args = req.args
-            # Convert dict to hashable tuple, handling list values like 'until'
             arg_key = tuple(sorted((k, tuple(v) if isinstance(v, list) else v)
                             for k, v in gen_args.items()))
             if arg_key not in groups:
@@ -115,37 +160,43 @@ class EvalHarnessLM(LM):
             top_k = gen_args.get("top_k", 0)
             until = gen_args.get("until", [])
 
-            # Get max_gen_len from generation_kwargs - use 'max_length' from gen_args
             max_gen_len = gen_args.get("max_length", 1024)
-
-            # Be much more conservative with prompt length to avoid CUDA OOB errors.
-            # BLT models have patching overhead, so we need a larger safety margin.
-            # Use at most half the sequence length for the prompt, and cap gen_len too.
             max_gen_len = min(max_gen_len, self.max_seq_len // 2)
             max_prompt_len = max(1, self.max_seq_len - max_gen_len - 128)
 
+            entropy_max_len = getattr(self.patcher, 'max_seq_len', None) or getattr(
+                getattr(self.patcher, 'entropy_model', None), 'max_seq_len', None
+            )
+            if entropy_max_len is not None:
+                max_prompt_len = min(max_prompt_len, entropy_max_len - max_gen_len - 64)
+                max_prompt_len = max(1, max_prompt_len)
+
             logger.info(f"Generating for {len(prompts)} prompts with max_gen_len={max_gen_len}, max_prompt_len={max_prompt_len}, max_seq_len={self.max_seq_len}")
 
-            # Truncate prompts that are too long (by bytes) before passing to generate
             truncated_prompts = []
+            truncated_prompt_ids = []
             for p in prompts:
                 encoded = self.tokenizer.encode(p, add_bos=False, add_eos=False)
                 if len(encoded) > max_prompt_len:
                     encoded = encoded[-max_prompt_len:]
                     p = self.tokenizer.decode(encoded)
                 truncated_prompts.append(p)
+                truncated_prompt_ids.append(encoded)
 
-            # Process one prompt at a time to isolate failures
-            for idx, prompt_text in zip(indices, truncated_prompts):
+            for idx, (prompt_text, prompt_ids) in zip(indices, zip(truncated_prompts, truncated_prompt_ids)):
                 try:
                     torch.cuda.empty_cache()
+
+                    # Compute a patch-budget-aware max_gen_len to prevent OOB in decoder_patch_ids_from_lengths
+                    safe_gen_len = self._safe_max_gen_len(prompt_text, prompt_ids, max_gen_len)
+
                     generated_tokens_list = generate_nocache(
                         prompts=[prompt_text],
                         model=self.model,
                         tokenizer=self.tokenizer,
                         patcher=self.patcher,
                         max_prompt_len=max_prompt_len,
-                        max_gen_len=max_gen_len,
+                        max_gen_len=safe_gen_len,
                         use_sampling=use_sampling,
                         temp=temp_val,
                         top_k=top_k,
@@ -156,26 +207,26 @@ class EvalHarnessLM(LM):
                     ids = generated_tokens_list[0]
                     text = self.tokenizer.decode(ids)
 
-                    # Apply until stopping criteria
                     for stop_str in until:
                         if stop_str in text:
                             text = text.split(stop_str)[0]
 
                     results[idx] = text
 
-                    # Log first few generations for debugging
                     if idx < 3:
                         logger.info(f"Generated for prompt {idx}: {text[:200]}...")
 
                 except Exception as e:
                     logger.error(f"Error during generation for prompt {idx}: {e}", exc_info=True)
                     results[idx] = ""
-                    # After a CUDA error, try to reset the state
                     try:
                         torch.cuda.synchronize()
                     except Exception:
                         pass
-                    torch.cuda.empty_cache()
+                    try:
+                        torch.cuda.empty_cache()
+                    except Exception:
+                        pass
 
         return results
 
@@ -259,7 +310,10 @@ class EvalHarnessLM(LM):
                 greedy_tokens = relevant_logits.argmax(dim=-1)
                 is_greedy = (greedy_tokens == target_tokens).all().item()
 
-                results.append((-loss.item(), is_greedy))
+                num_bytes = len(continuation)
+                normalized_ll = -loss.item() / num_bytes if num_bytes > 0 else 0.0
+
+                results.append((normalized_ll, is_greedy))
 
             except Exception as e:
                 logger.error(f"Error in loglikelihood: {e}", exc_info=True)
@@ -386,7 +440,7 @@ def eval_ppl_on_path(
 def launch_eval(eval_args: EvalArgs):
     assert eval_args.ckpt_dir is not None
 
-    timestamp = datetime.now().strftime("%b%d-%H%M")
+    timestamp = datetime.now().strftime("%b%d-%H%M%S")
     dump_dir = f"{eval_args.dump_dir}_{timestamp}"
 
     distributed_args = DistributedArgs()
@@ -537,8 +591,18 @@ def launch_eval(eval_args: EvalArgs):
 
 
 def main():
-    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/apps/main/configs/eval.yaml")
+    parser = argparse.ArgumentParser(description="Run evaluation")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/apps/main/configs/eval.yaml",
+        help="Path to the eval config YAML file",
+    )
+    args = parser.parse_args()
+
+    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args=args.config)
     launch_eval(eval_args)
+
 
 if __name__ == "__main__":
     main()

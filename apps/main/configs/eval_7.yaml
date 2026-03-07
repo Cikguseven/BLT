@@ -1,0 +1,117 @@
+# ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/blt_7b"
+ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/step20k"
+dump_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/dump-dir"
+# entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/entropy_model"
+entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/blt-entropy/50m_mC4"
+generator:
+  max_tokens: 256
+  dtype: bf16
+  temperature: 0.0
+  top_p: 0.95
+harness:
+  tasks:
+    # ── English benchmarks ──────────────────────────────────────────────────
+    # - task: hellaswag
+    #   num_fewshot: 0
+    # - task: piqa
+    #   num_fewshot: 0
+    # - task: arc_easy
+    #   num_fewshot: 0
+    # - task: arc_challenge
+    #   num_fewshot: 0
+    # - task: mmlu
+    #   num_fewshot: 5
+
+    # ── Exclude ─────────────────────────────────────────────────────────────
+    # - task: mbpp
+    #   num_fewshot: 3
+    # - task: humaneval
+    #   num_fewshot: 0
+
+    # ── Belebele (multilingual reading comprehension) ───────────────────────
+    # - task: belebele_eng_Latn
+    #   num_fewshot: 0
+    # - task: belebele_ind_Latn
+    #   num_fewshot: 0
+    # - task: belebele_khm_Khmr
+    #   num_fewshot: 0
+    # - task: belebele_zsm_Latn
+    #   num_fewshot: 0
+    # - task: belebele_mya_Mymr
+    #   num_fewshot: 0
+    # - task: belebele_tam_Taml
+    #   num_fewshot: 0
+    # - task: belebele_tha_Thai
+    #   num_fewshot: 0
+    # - task: belebele_tgl_Latn
+    #   num_fewshot: 0
+    # - task: belebele_vie_Latn
+    #   num_fewshot: 0
+    # - task: belebele_zho_Hans
+    #   num_fewshot: 0
+    # - task: belebele_lao_Laoo
+    #   num_fewshot: 0
+
+    # # ── XNLI (natural language inference) ──────────────────────────────────
+    # - task: xnli_en
+    #   num_fewshot: 0
+    # - task: xnli_th
+    #   num_fewshot: 0
+    # - task: xnli_vi
+    #   num_fewshot: 0
+    # - task: xnli_zh
+    #   num_fewshot: 0
+
+    # # ── XCOPA (commonsense causal reasoning) ────────────────────────────────
+    # - task: xcopa_en
+    #   num_fewshot: 0
+    # - task: xcopa_id
+    #   num_fewshot: 0
+    # - task: xcopa_ta
+    #   num_fewshot: 0
+    # - task: xcopa_th
+    #   num_fewshot: 0
+    # - task: xcopa_vi
+    #   num_fewshot: 0
+    # - task: xcopa_zh
+    #   num_fewshot: 0
+
+    # # ── PAWS-X (paraphrase identification) ─────────────────────────────────
+    # - task: paws_en
+    #   num_fewshot: 0
+    # - task: paws_zh
+    #   num_fewshot: 0
+
+    # # ── Global-MMLU (multilingual knowledge) ────────────────────────────────
+    # - task: global_mmlu_full_en
+    #   num_fewshot: 5
+    # - task: global_mmlu_full_fil
+    #   num_fewshot: 5
+    # - task: global_mmlu_full_id
+    #   num_fewshot: 5
+    # - task: global_mmlu_full_ms
+    #   num_fewshot: 5
+    # - task: global_mmlu_full_vi
+    #   num_fewshot: 5
+    # - task: global_mmlu_full_zh
+    #   num_fewshot: 5
+
+    # # ── XStoryCloze (cross-lingual story understanding) ─────────────────────
+    # - task: xstorycloze_en
+    #   num_fewshot: 0
+    # - task: xstorycloze_id
+    #   num_fewshot: 0
+    # - task: xstorycloze_my
+    #   num_fewshot: 0
+    # - task: xstorycloze_zh
+    #   num_fewshot: 0
+
+    # ── XQuAD (extractive question answering) ───────────────────────────────
+    - task: xquad_en
+      num_fewshot: 0
+    # - task: xquad_th
+    #   num_fewshot: 0
+    # - task: xquad_vi
+    #   num_fewshot: 0
+    # - task: xquad_zh
+    #   num_fewshot: 0
