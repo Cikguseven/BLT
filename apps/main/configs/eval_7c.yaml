@@ -4,7 +4,7 @@ dump_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/dump-dir"
 # entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/entropy_model"
 entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/blt-entropy/50m_mC4"
 generator:
-  max_tokens: 256
+  max_tokens: 128
   dtype: bf16
   temperature: 0.0
   top_p: 0.95

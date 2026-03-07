@@ -5,13 +5,10 @@ Benchmarks: Belebele, XNLI, XCOPA, PAWS-X, Global-MMLU, XStoryCloze,
             XQuAD, PIQA, HellaSwag, ARC-C, ARC-E, MMLU
 
 Usage:
-    for tok in pabpe myte blt; do
-        python lmeval_pipeline.py \
-            --model_path /data/models/olmo-local-myte \
-            --tokenizer_name myte \
-            --output_dir ./lmeval_results/myte \
-            --batch_size 8 \
-            --trust_remote_code
+    python pipeline_lm_eval.py \
+        --model_path /data/models/olmo-local-myte \
+        --tokenizer_name myte \
+        --output_dir ./lmeval_results/myte
     done
 """
 
@@ -96,10 +93,10 @@ FEWSHOT_CONFIG = {
     "belebele":       0,
     "xnli":           0,
     "xcopa":          0,
-    "paws_x":         0,
-    "global_mmlu":    5,
+    "paws":         0,
     "xstorycloze":    0,
     "xquad":          0,
+    "global_mmlu":    5,
     # --- English ---
     "piqa":           0,
     "hellaswag":      0,
@@ -123,11 +120,10 @@ def fewshot_for(task_name: str) -> int:
 
 def run_evaluation(
     model_path: str,
-    tokenizer_name: str,
     output_dir: str,
-    batch_size: int = 8,
-    max_length: int = 4096,
-    limit: Optional[float] = None, # Changed to int per previous advice
+    batch_size: int = 16,
+    max_length: int = 2048,
+    limit: Optional[float] = None,
     tasks: Optional[list[str]] = None,
     apply_chat_template: bool = False,
     trust_remote_code: bool = False,
@@ -143,16 +139,15 @@ def run_evaluation(
     for t in tasks:
         fewshot_groups[fewshot_for(t)].append(t)
 
-    # -----------------------------------------------------------------------
     # Instantiate the model ONCE here to prevent reloading
-    # -----------------------------------------------------------------------
     log.info(f"Loading model {model_path} into memory...")
     lm_obj = HFLM(
         pretrained=model_path,
         dtype="bfloat16",
         trust_remote_code=trust_remote_code,
         batch_size=batch_size,
-        max_length=max_length
+        max_length=max_length,
+        tokenizer_kwargs={"trust_remote_code": trust_remote_code},
     )
 
     all_results: dict[str, dict] = {}
@@ -313,20 +308,20 @@ def parse_args():
     )
     parser.add_argument("--model_path",      required=True, help="HF model dir or hub id")
     parser.add_argument("--tokenizer_name",  required=True,
-                        choices=["pabpe", "myte", "blt", "olmo2_orig"])
+                        choices=["parity-aware-bpe", "myte", "byte-level-bpe"])
     parser.add_argument("--output_dir",      default="./lmeval_results")
-    parser.add_argument("--batch_size",      type=int, default=8)
-    parser.add_argument("--max_length",      type=int, default=4096)
+    parser.add_argument("--batch_size",      type=int, default=16)
+    parser.add_argument("--max_length",      type=int, default=2048)
     parser.add_argument("--limit",           type=float, default=None,
                         help="Fraction or N samples per task (for debugging)")
     parser.add_argument("--tasks",           nargs="+", default=None,
                         help="Override task list (default: all benchmarks)")
-    parser.add_argument("--trust_remote_code", action="store_true")
+    parser.add_argument("--apply_chat_template", action="store_true")
     parser.add_argument(
         "--merge_only", nargs="+", default=None,
         metavar="TOK",
         help="Skip evaluation; just merge existing result JSONs for these tokenizers."
-             " E.g.: --merge_only pabpe myte blt"
+             " E.g.: --merge_only parity-aware-bpe myte byte-level-bpe"
     )
     return parser.parse_args()
 
@@ -340,12 +335,12 @@ if __name__ == "__main__":
         out = Path(args.output_dir) / args.tokenizer_name
         all_results = run_evaluation(
             model_path=args.model_path,
-            tokenizer_name=args.tokenizer_name,
             output_dir=str(out),
             batch_size=args.batch_size,
             max_length=args.max_length,
             limit=args.limit,
             tasks=args.tasks,
-            trust_remote_code=args.trust_remote_code,
+            apply_chat_template=args.apply_chat_template,
+            trust_remote_code=True,
         )
         save_results(all_results, args.tokenizer_name, str(out))

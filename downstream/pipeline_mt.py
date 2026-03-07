@@ -119,13 +119,13 @@ _SHOT_EN = [
 ]
 
 
-_SHOT_EN_TL = [
-    "They include the Netherlands, with Anna Jochemsen finishing ninth in the women's standing class in the Super-G yesterday, and Finland with Katja Saarinen finishing tenth in the same event.",
-    "So many of us find ourselves watching a television show that informs us of a process or experience in which we will never participate or apply that knowledge.",
-    "He arrived in the US with 4 cents to his name, a book of poetry, and a letter of recommendation from Charles Batchelor (his manager in his previous job) to Thomas Edison.",
-    "The great pyramid was created to honor the Pharaoh Khufu, and many of the smaller pyramids, tombs, and temples were built to honor Khufu's wives and family members.",
-    "Tours are cheaper for larger groups, so if you're by yourself or with just one friend, try to meet other people and form a group of four to six for a better per-person rate.",
-]
+# _SHOT_EN_TL = [
+#     "They include the Netherlands, with Anna Jochemsen finishing ninth in the women's standing class in the Super-G yesterday, and Finland with Katja Saarinen finishing tenth in the same event.",
+#     "So many of us find ourselves watching a television show that informs us of a process or experience in which we will never participate or apply that knowledge.",
+#     "He arrived in the US with 4 cents to his name, a book of poetry, and a letter of recommendation from Charles Batchelor (his manager in his previous job) to Thomas Edison.",
+#     "The great pyramid was created to honor the Pharaoh Khufu, and many of the smaller pyramids, tombs, and temples were built to honor Khufu's wives and family members.",
+#     "Tours are cheaper for larger groups, so if you're by yourself or with just one friend, try to meet other people and form a group of four to six for a better per-person rate.",
+# ]
 
 
 _SHOT_TGT = {
@@ -178,12 +178,19 @@ _SHOT_TGT = {
         "ในช่วง 3 เดือนที่ผ่านมา ผู้ถูกจับกุมกว่า 80 รายได้รับการปล่อยตัวจากศูนย์บันทึกข้อหากลางโดยไม่ได้ถูกตั้งข้อหาอย่างเป็นทางการ",
         "หลักสำคัญของวิธีคิดนี้คือ ความรวดเร็ว ตรรกะ และความแม่นยำ รวมทั้งการบ่งบอกข้อเท็จจริง การนำเทคนิคที่มีอยู่แล้วมาใช้ซ้ำ และการรวบรวมข้อมูล",
     ],
+    # "tl": [
+    #     "Kasama dito ang Netherlands, dahil si Anna Jochemsen ay nagtapos na ikasiyam sa klaseng pambabaeng nakatayo sa Super-G kahapon, at ang Finland dahil si Katja Saarinen ay nagtapos na ikasampu sa parehong laban.",
+    #     "Napakarami sa atin ang nasusumpungan ang ating mga sarili na nanonood ng palabas sa telebisyon na nagbibigay-kaalaman sa atin tungkol sa isang proseso o karanasan kung saan hindi kailanman tayo makikibahagi o gagamit ng kaalamang iyon.",
+    #     "Dumating siya sa US na may 4 na sentimo sa kaniyang pangalan, isang libro ng mga tula, at isang sulat ng rekomendasyon mula kay Charles Batchelor (ang kaniyang tagapamahala sa dati niyang trabaho) patungo kay Thomas Edison.",
+    #     "Ang great pyramid ay ginawa upang parangalan ang Pharaoh na si Khufu, at marami sa mga maliliit na pyramid, mga puntod, at mga templo ay ginawa upang parangalan ang mga asawa ni Khufu at mga miyembro ng pamilya.",
+    #     "Ang mga paglilibot ay mas mura para sa mas malalaking grupo, kaya kung ikaw ay mag-isa o may iisang kasama, iyong subukang makatagpo ng ibang tao at bumuo ng grupo ng apat hanggang anim upang makakuha ng mas mababang singil para sa bawat tao.",
+    # ],
     "tl": [
-        "Kasama dito ang Netherlands, dahil si Anna Jochemsen ay nagtapos na ikasiyam sa klaseng pambabaeng nakatayo sa Super-G kahapon, at ang Finland dahil si Katja Saarinen ay nagtapos na ikasampu sa parehong laban.",
-        "Napakarami sa atin ang nasusumpungan ang ating mga sarili na nanonood ng palabas sa telebisyon na nagbibigay-kaalaman sa atin tungkol sa isang proseso o karanasan kung saan hindi kailanman tayo makikibahagi o gagamit ng kaalamang iyon.",
-        "Dumating siya sa US na may 4 na sentimo sa kaniyang pangalan, isang libro ng mga tula, at isang sulat ng rekomendasyon mula kay Charles Batchelor (ang kaniyang tagapamahala sa dati niyang trabaho) patungo kay Thomas Edison.",
-        "Ang great pyramid ay ginawa upang parangalan ang Pharaoh na si Khufu, at marami sa mga maliliit na pyramid, mga puntod, at mga templo ay ginawa upang parangalan ang mga asawa ni Khufu at mga miyembro ng pamilya.",
-        "Ang mga paglilibot ay mas mura para sa mas malalaking grupo, kaya kung ikaw ay mag-isa o may iisang kasama, iyong subukang makatagpo ng ibang tao at bumuo ng grupo ng apat hanggang anim upang makakuha ng mas mababang singil para sa bawat tao.",
+        "Ang War of Spanish Succession (Digmaan para sa Halilinan sa Espanya) ang naging unang digmaan na pangunahing naglalayon na makamit ang balanse sa kapangyarihan.",
+        "Maraming mga bansa ang matatas sa wikang Ingles, at asahan mo ang limitadong kaalaman - lalo na sa mga mas bata.",
+        "Mas mababa pa sa ilang libong kaso ang naiulat sa mga tao, ngunit ang ilan sa kanila ay nakamatay.",
+        "Sa huling 3 buwan, mahigit sa 80 taong naaresto ang pinalaya mula sa pasilidad ng Himpilan ng Pulisya nang hindi pormal na kinakasuhan.",
+        "Ang tuon ng ganitong pag-iisip ay ang bilis, lohika at kawastuan, pati na rin ang pagkilala sa mga katotohanan, muling paggamit sa mga umiiral nang pamamaraan, pagtitipon ng impormasyon.",
     ],
     "vi": [
         "Chiến tranh Kế vị Tây Ban Nha đã đánh dấu chiến tranh đầu tiên mà vấn đề trọng tâm là sự cân bằng quyền lực.",
@@ -243,10 +250,12 @@ def build_prompt(src_lang: str, tgt_lang: str, test_src: str) -> str:
 
 
     if src_lang == "en":
-        src_shots = _SHOT_EN_TL if tgt_lang == "tl" else _SHOT_EN
+        # src_shots = _SHOT_EN_TL if tgt_lang == "tl" else _SHOT_EN
+        src_shots = _SHOT_EN
         tgt_shots = _SHOT_TGT[tgt_lang]
     else:
-        tgt_shots = _SHOT_EN_TL if src_lang == "tl" else _SHOT_EN
+        # tgt_shots = _SHOT_EN_TL if src_lang == "tl" else _SHOT_EN
+        tgt_shots = _SHOT_EN
         src_shots = _SHOT_TGT[src_lang]
 
 
@@ -343,15 +352,20 @@ def extract_translation(raw_output: str, tgt_label: str) -> str:
     Strip the target-language label prefix and take the first line.
     raw_output must be the GENERATED text only (prompt already stripped).
     """
+    print(f"Raw model output:\n{raw_output}\n---")
+    print(f"Extracting translation using target label: '{tgt_label}'")
     text = raw_output.strip()
     if text.startswith(tgt_label + ":"):
         text = text[len(tgt_label) + 1:].strip()
     text = text.replace("\n", " ").strip()
     text = re.sub(r"^\s*-\s*", "", text)
+    print(f"Extracted translation:\n{text}\n---")
     return text
 
-'''
-def extract_translation(raw_output: str, tgt_label: str) -> str:
+
+def extract_translation_2(raw_output: str, tgt_label: str) -> str:
+    print(f"Raw model output:\n{raw_output}\n---")
+    print(f"Extracting translation using target label: '{tgt_label}'")
     text = raw_output.strip()
     # More robust: case-insensitive, allow colon spacing variants
     pattern = re.compile(re.escape(tgt_label) + r"\s*:\s*", re.IGNORECASE)
@@ -360,8 +374,8 @@ def extract_translation(raw_output: str, tgt_label: str) -> str:
         text = text[m.end():].strip()
     text = text.replace("\n", " ").strip()
     text = re.sub(r"^\s*[-`]+\s*", "", text)
+    print(f"Extracted translation:\n{text}\n---")
     return text
-'''
 
 
 
@@ -387,7 +401,7 @@ def load_model_hf(model_path: str):
 @torch.no_grad()
 def run_inference_hf(
     model, hf_tok, prompts: list[str],
-    max_new_tokens: int = 256, batch_size: int = 8,
+    max_new_tokens: int = 256, batch_size: int = 16,
 ) -> list[str]:
     """Standard HF batched greedy decode; returns only the generated tokens."""
     outputs = []
@@ -452,7 +466,7 @@ def load_model_blt(model_path: str, entropy_model_path: str):
 @torch.no_grad()
 def run_inference_blt(
     model, blt_tok, patcher, prompts: list[str],
-    max_new_tokens: int = 256, batch_size: int = 8,
+    max_new_tokens: int = 256, batch_size: int = 16,
 ) -> list[str]:
     """
     BLT inference via generate_nocache.
@@ -529,6 +543,7 @@ def evaluate_direction(
 
 
     tgt_label = LANG_PAIR_META[(src_lang, tgt_lang)]["tgt_label"]
+    hyps_raw  = [extract_translation_2(o, tgt_label) for o in raw_out]
     hyps_raw  = [extract_translation(o, tgt_label) for o in raw_out]
 
     # spBLEU and chrF++ always on raw strings
@@ -569,7 +584,7 @@ def run_full_evaluation(
     flores_dir: str,
     output_dir: str,
     max_new_tokens: int = 256,
-    batch_size: int = 8,
+    batch_size: int = 16,
     directions: Optional[list[tuple]] = None,
 ):
     Path(output_dir).mkdir(parents=True, exist_ok=True)
