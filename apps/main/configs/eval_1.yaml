@@ -1,6 +1,6 @@
 ckpt_dir: "/localhome/kieron/fyp/models/blt-38b-ckpt/checkpoints/0000019800/consolidated"
-entropy_ckpt_dir: "/localhome/kieron/fyp/blt/blt-entropy-mc4-1M-original"
 dump_dir: "/localhome/kieron/blt/dump-dir"
+entropy_ckpt_dir: "/localhome/kieron/fyp/blt/blt-entropy-mc4-1M-original"
 generator:
   max_tokens: 2048
   dtype: bf16
@@ -11,8 +11,8 @@ harness:
     # ── English benchmarks ──────────────────────────────────────────────────
     # - task: hellaswag
     #   num_fewshot: 0
-    - task: piqa
-      num_fewshot: 0
+    # - task: piqa
+    #   num_fewshot: 0
     # - task: arc_easy
     #   num_fewshot: 0
     # - task: arc_challenge
@@ -27,28 +27,28 @@ harness:
     #   num_fewshot: 0
 
     # ── Belebele (multilingual reading comprehension) ───────────────────────
-    # - task: belebele_eng_Latn
-    #   num_fewshot: 0
-    # - task: belebele_ind_Latn
-    #   num_fewshot: 0
-    # - task: belebele_khm_Khmr
-    #   num_fewshot: 0
-    # - task: belebele_zsm_Latn
-    #   num_fewshot: 0
-    # - task: belebele_mya_Mymr
-    #   num_fewshot: 0
-    # - task: belebele_tam_Taml
-    #   num_fewshot: 0
-    # - task: belebele_tha_Thai
-    #   num_fewshot: 0
-    # - task: belebele_tgl_Latn
-    #   num_fewshot: 0
-    # - task: belebele_vie_Latn
-    #   num_fewshot: 0
-    # - task: belebele_zho_Hans
-    #   num_fewshot: 0
-    # - task: belebele_lao_Laoo
-    #   num_fewshot: 0
+    - task: belebele_eng_Latn
+      num_fewshot: 0
+    - task: belebele_ind_Latn
+      num_fewshot: 0
+    - task: belebele_khm_Khmr
+      num_fewshot: 0
+    - task: belebele_zsm_Latn
+      num_fewshot: 0
+    - task: belebele_mya_Mymr
+      num_fewshot: 0
+    - task: belebele_tam_Taml
+      num_fewshot: 0
+    - task: belebele_tha_Thai
+      num_fewshot: 0
+    - task: belebele_tgl_Latn
+      num_fewshot: 0
+    - task: belebele_vie_Latn
+      num_fewshot: 0
+    - task: belebele_zho_Hans
+      num_fewshot: 0
+    - task: belebele_lao_Laoo
+      num_fewshot: 0
 
     # # ── XNLI (natural language inference) ──────────────────────────────────
     # - task: xnli_en

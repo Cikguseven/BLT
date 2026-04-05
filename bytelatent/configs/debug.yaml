@@ -82,7 +82,7 @@ data:
   tokenizer_args:
     name: blt
     init_kwargs:
-      bpe_tokenizer_path: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tokenizer/tokenizer.model
+      bpe_tokenizer_path: /localhome/kieron/fyp/blt/tokenizer/tokenizer.model
 
 profiling:
   run: false

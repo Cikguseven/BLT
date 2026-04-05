@@ -1,6 +1,6 @@
 ckpt_dir: "/localhome/kieron/fyp/models/blt-38b-ckpt/checkpoints/0000019800/consolidated"
-entropy_ckpt_dir: "/localhome/kieron/fyp/blt/blt-entropy-mc4-1M-original"
 dump_dir: "/localhome/kieron/blt/dump-dir"
+entropy_ckpt_dir: "/localhome/kieron/fyp/blt/blt-entropy-mc4-1M-original"
 generator:
   max_tokens: 2048
   dtype: bf16
@@ -11,8 +11,8 @@ harness:
     # ── English benchmarks ──────────────────────────────────────────────────
     # - task: hellaswag
     #   num_fewshot: 0
-    - task: piqa
-      num_fewshot: 0
+    # - task: piqa
+    #   num_fewshot: 0
     # - task: arc_easy
     #   num_fewshot: 0
     # - task: arc_challenge
@@ -60,19 +60,19 @@ harness:
     # - task: xnli_zh
     #   num_fewshot: 0
 
-    # # ── XCOPA (commonsense causal reasoning) ────────────────────────────────
-    # - task: xcopa_en
-    #   num_fewshot: 0
-    # - task: xcopa_id
-    #   num_fewshot: 0
-    # - task: xcopa_ta
-    #   num_fewshot: 0
-    # - task: xcopa_th
-    #   num_fewshot: 0
-    # - task: xcopa_vi
-    #   num_fewshot: 0
-    # - task: xcopa_zh
-    #   num_fewshot: 0
+    # ── XCOPA (commonsense causal reasoning) ────────────────────────────────
+    - task: xcopa_en
+      num_fewshot: 0
+    - task: xcopa_id
+      num_fewshot: 0
+    - task: xcopa_ta
+      num_fewshot: 0
+    - task: xcopa_th
+      num_fewshot: 0
+    - task: xcopa_vi
+      num_fewshot: 0
+    - task: xcopa_zh
+      num_fewshot: 0
 
     # # ── PAWS-X (paraphrase identification) ─────────────────────────────────
     # - task: paws_en

@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, "/scratch/Projects/CFP-01/CFP01-CF-060/kieron")
+sys.path.insert(0, "/localhome/kieron")
 
 import time
 from pathlib import Path
@@ -12,19 +12,20 @@ TOKENIZERS_TO_TEST = {
     "utf8": False,
     "myte": True,
     "parity_aware_bpe": True,
+    "byte_level_bpe": True,
     "blt": True,
 }
 
 # Tokenizer file paths
-MYTE_DECOMPOSE_MAP_PATH = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/8192_myte_SEA_1m/decompose.json"
-MYTE_MERGE_MAP_PATH = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/8192_myte_SEA_1m/morf_map_mc4_8192.json"
-PARITY_AWARE_BPE_PATH = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/90k_byte-level_SEA_1m/tokenizer.json"
-BLT_ENTROPY_MODEL_DIR = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/entropy_model"
-BLT_ENTROPY_MODEL_DIR = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/blt-entropy/50m_mC4"
-BLT_CHECKPOINT_PATH = "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tmp/blt-1b"
+MYTE_DECOMPOSE_MAP_PATH = "/localhome/kieron/8192_myte_SEA_1m/decompose.json"
+MYTE_MERGE_MAP_PATH = "/localhome/kieron/8192_myte_SEA_1m/morf_map_mc4_8192.json"
+PARITY_AWARE_BPE_PATH = "/localhome/kieron/90k_byte-level_SEA_1m/tokenizer.json"
+BYTE_LEVEL_BPE_PATH = "/localhome/kieron/path/to/byte_level_bpe/tokenizer.json"
+BLT_ENTROPY_MODEL_DIR = "/localhome/kieron/blt-38b/entropy"
+BLT_CHECKPOINT_PATH = "/localhome/kieron/blt-38b/model"
 
 LINES = 1012
-EVAL_DIR = Path("/scratch/Projects/CFP-01/CFP01-CF-060/kieron/data/flores-plus_dev_devtest")
+EVAL_DIR = Path("/localhome/kieron/data/flores-plus_dev_devtest")
 
 MYTE_96 = [
     "afr_Latn",
@@ -316,6 +317,7 @@ def main() -> None:
     myte_tokenizer = None
     byte_tokenizer = None
     parity_aware_bpe_tokenizer = None
+    byte_level_bpe_tokenizer = None
     blt_tokenizer = None
     blt_patcher = None
 
@@ -323,7 +325,7 @@ def main() -> None:
         byte_tokenizer = ByteTokenizer()
 
     if "myte" in enabled:
-        from myte.src.myt5.myt5_tokenizer import MyT5Tokenizer
+        from 8192_myte_SEA_1m.myt5_tokenizer import MyT5Tokenizer
         myte_tokenizer = MyT5Tokenizer(
             decompose_map=MYTE_DECOMPOSE_MAP_PATH,
             merge_map=MYTE_MERGE_MAP_PATH
@@ -333,6 +335,12 @@ def main() -> None:
         from tokenizers import Tokenizer
         parity_aware_bpe_tokenizer = Tokenizer.from_file(
             PARITY_AWARE_BPE_PATH
+        )
+
+    if "byte_level_bpe" in enabled:
+        from tokenizers import Tokenizer
+        byte_level_bpe_tokenizer = Tokenizer.from_file(
+            BYTE_LEVEL_BPE_PATH
         )
 
     if "blt" in enabled:
@@ -370,6 +378,11 @@ def main() -> None:
     avg_tokens_pa_bpe: Dict[str, float] = {}
     avg_parity_pa_bpe: Dict[str, float] = {}
     cr_lang_pa_bpe: Dict[str, float] = {}
+
+    tokens_per_lang_bl_bpe: Dict[str, int] = {}
+    avg_tokens_bl_bpe: Dict[str, float] = {}
+    avg_parity_bl_bpe: Dict[str, float] = {}
+    cr_lang_bl_bpe: Dict[str, float] = {}
 
     tokens_per_lang_blt: Dict[str, int] = {}
     avg_tokens_blt: Dict[str, float] = {}
@@ -423,6 +436,14 @@ def main() -> None:
             cr_lang_pa_bpe[code] = (sum(1.0 / c for c in counts) / len(counts)) if counts else 0.0
             per_lang_parts.append(f"Parity-Aware BPE tokens={tokens_per_lang_pa_bpe[code]}")
 
+        if "byte_level_bpe" in enabled:
+            counts = parity_token_counts_per_sentence(byte_level_bpe_tokenizer, lines)
+            counts = [c for c in counts if c > 0]
+            tokens_per_lang_bl_bpe[code] = sum(counts)
+            avg_tokens_bl_bpe[code] = (sum(counts) / len(counts)) if counts else 0.0
+            cr_lang_bl_bpe[code] = (sum(1.0 / c for c in counts) / len(counts)) if counts else 0.0
+            per_lang_parts.append(f"Byte-Level BPE tokens={tokens_per_lang_bl_bpe[code]}")
+
         if "blt" in enabled:
             counts = blt_patch_counts_per_sentence(blt_tokenizer, blt_patcher, lines)
             counts = [c for c in counts if c > 0]
@@ -435,8 +456,9 @@ def main() -> None:
 
     # English baselines (only for enabled tokenizers)
     eng_avg_bytes = avg_tokens_bytes.get("eng_Latn") if "utf8" in enabled else None
-    eng_avg_myte = avg_tokens_myte.get("eng_Latn")if "myte" in enabled else None
+    eng_avg_myte = avg_tokens_myte.get("eng_Latn") if "myte" in enabled else None
     eng_avg_pa_bpe = avg_tokens_pa_bpe.get("eng_Latn") if "parity_aware_bpe" in enabled else None
+    eng_avg_bl_bpe = avg_tokens_bl_bpe.get("eng_Latn") if "byte_level_bpe" in enabled else None
     eng_avg_blt = avg_tokens_blt.get("eng_Latn") if "blt" in enabled else None
 
     # Per-language parity + compression stats (only for enabled tokenizers)
@@ -444,6 +466,7 @@ def main() -> None:
         avg_tokens_bytes.keys(),
         avg_tokens_myte.keys(),
         avg_tokens_pa_bpe.keys(),
+        avg_tokens_bl_bpe.keys(),
         avg_tokens_blt.keys(),
     ))
 
@@ -469,6 +492,7 @@ def main() -> None:
             parts.append(f"MYTE average tokens per sentence: {avg_tokens_myte[lang]:.2f}")
             parts.append(f"MYTE compression rate: {lines_per_token:.4f}")
             output_lines.append(", ".join(parts))
+
         if "parity_aware_bpe" in enabled and lang in avg_tokens_pa_bpe and eng_avg_pa_bpe:
             parity = avg_tokens_pa_bpe[lang] / eng_avg_pa_bpe
             avg_parity_pa_bpe[lang] = parity
@@ -477,6 +501,16 @@ def main() -> None:
             parts.append(f"Parity-Aware BPE parity: {parity:.2f}")
             parts.append(f"Parity-Aware BPE average tokens per sentence: {avg_tokens_pa_bpe[lang]:.2f}")
             parts.append(f"Parity-Aware BPE compression rate: {lines_per_token:.4f}")
+            output_lines.append(", ".join(parts))
+
+        if "byte_level_bpe" in enabled and lang in avg_tokens_bl_bpe and eng_avg_bl_bpe:
+            parity = avg_tokens_bl_bpe[lang] / eng_avg_bl_bpe
+            avg_parity_bl_bpe[lang] = parity
+            lines_per_token = 1 / avg_tokens_bl_bpe[lang] if avg_tokens_bl_bpe[lang] > 0 else 0.0
+            parts = []
+            parts.append(f"Byte-Level BPE parity: {parity:.2f}")
+            parts.append(f"Byte-Level BPE average tokens per sentence: {avg_tokens_bl_bpe[lang]:.2f}")
+            parts.append(f"Byte-Level BPE compression rate: {lines_per_token:.4f}")
             output_lines.append(", ".join(parts))
 
         if "blt" in enabled and lang in avg_tokens_blt and eng_avg_blt:
@@ -498,6 +532,8 @@ def main() -> None:
         gini_parts.append(f"MYTE: {gini(list(avg_tokens_myte.values())):.3f}")
     if "parity_aware_bpe" in enabled:
         gini_parts.append(f"Parity-Aware BPE: {gini(list(avg_tokens_pa_bpe.values())):.3f}")
+    if "byte_level_bpe" in enabled:
+        gini_parts.append(f"Byte-Level BPE: {gini(list(avg_tokens_bl_bpe.values())):.3f}")
     if "blt" in enabled:
         gini_parts.append(f"BLT: {gini(list(avg_tokens_blt.values())):.3f}")
     output_lines.append(", ".join(gini_parts) if gini_parts else "No enabled tokenizers produced data.")
@@ -519,6 +555,8 @@ def main() -> None:
         output_lines.append(f"MYTE: {_combined_avg(avg_tokens_myte):.2f}")
     if "parity_aware_bpe" in enabled:
         output_lines.append(f"Parity-Aware BPE: {_combined_avg(avg_tokens_pa_bpe):.2f}")
+    if "byte_level_bpe" in enabled:
+        output_lines.append(f"Byte-Level BPE: {_combined_avg(avg_tokens_bl_bpe):.2f}")
     if "blt" in enabled:
         output_lines.append(f"BLT: {_combined_avg(avg_tokens_blt):.2f}")
 
@@ -529,6 +567,8 @@ def main() -> None:
         output_lines.append(f"MYTE: {_combined_avg(cr_lang_myte):.4f}")
     if "parity_aware_bpe" in enabled:
         output_lines.append(f"Parity-Aware BPE: {_combined_avg(cr_lang_pa_bpe):.4f}")
+    if "byte_level_bpe" in enabled:
+        output_lines.append(f"Byte-Level BPE: {_combined_avg(cr_lang_bl_bpe):.4f}")
     if "blt" in enabled:
         output_lines.append(f"BLT: {_combined_avg(cr_lang_blt):.4f}")
 
@@ -540,6 +580,8 @@ def main() -> None:
         output_lines.append(f"MYTE: {_combined_avg(avg_parity_myte, exclude_key='eng_Latn'):.2f}" if eng_avg_myte else "MYTE: English missing")
     if "parity_aware_bpe" in enabled:
         output_lines.append(f"Parity-Aware BPE: {_combined_avg(avg_parity_pa_bpe, exclude_key='eng_Latn'):.2f}" if eng_avg_pa_bpe else "Parity-Aware BPE: English missing")
+    if "byte_level_bpe" in enabled:
+        output_lines.append(f"Byte-Level BPE: {_combined_avg(avg_parity_bl_bpe, exclude_key='eng_Latn'):.2f}" if eng_avg_bl_bpe else "Byte-Level BPE: English missing")
     if "blt" in enabled:
         output_lines.append(f"BLT: {_combined_avg(avg_parity_blt, exclude_key='eng_Latn'):.2f}" if eng_avg_blt else "BLT: English missing")
 
@@ -550,6 +592,8 @@ def main() -> None:
         output_lines.append(f"MYTE: {max(avg_parity_myte.values()):.2f}" if eng_avg_myte and avg_parity_myte else "MYTE: English missing")
     if "parity_aware_bpe" in enabled:
         output_lines.append(f"Parity-Aware BPE: {max(avg_parity_pa_bpe.values()):.2f}" if eng_avg_pa_bpe and avg_parity_pa_bpe else "Parity-Aware BPE: English missing")
+    if "byte_level_bpe" in enabled:
+        output_lines.append(f"Byte-Level BPE: {max(avg_parity_bl_bpe.values()):.2f}" if eng_avg_bl_bpe and avg_parity_bl_bpe else "Byte-Level BPE: English missing")
     if "blt" in enabled:
         output_lines.append(f"BLT: {max(avg_parity_blt.values()):.2f}" if eng_avg_blt and avg_parity_blt else "BLT: English missing")
 

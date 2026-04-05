@@ -6,6 +6,9 @@ import math
 import os
 import sys
 from datetime import datetime
+import argparse
+
+import torch._dynamo
 
 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -296,7 +299,6 @@ class EvalHarnessLM(LM):
 
         return results
 
-
 @torch.no_grad()
 def eval_ppl_on_path(
     *,
@@ -386,7 +388,7 @@ def eval_ppl_on_path(
 def launch_eval(eval_args: EvalArgs):
     assert eval_args.ckpt_dir is not None
 
-    timestamp = datetime.now().strftime("%b%d-%H%M")
+    timestamp = datetime.now().strftime("%b%d-%H%M%S")
     dump_dir = f"{eval_args.dump_dir}_{timestamp}"
 
     distributed_args = DistributedArgs()
@@ -537,8 +539,18 @@ def launch_eval(eval_args: EvalArgs):
 
 
 def main():
-    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args="/home/kieron/fyp/blt/apps/main/configs/eval.yaml")
+    parser = argparse.ArgumentParser(description="Run evaluation")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="/localhome/kieron/fyp/blt/apps/main/configs/eval.yaml",
+        help="Path to the eval config YAML file",
+    )
+    args = parser.parse_args()
+
+    eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args=args.config)
     launch_eval(eval_args)
 
 if __name__ == "__main__":
+    torch._dynamo.config.suppress_errors = True
     main()

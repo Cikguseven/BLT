@@ -211,12 +211,12 @@ data:
   tokenizer_args:
     name: blt
     init_kwargs:
-      bpe_tokenizer_path: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/tokenizer/tokenizer.model
+      bpe_tokenizer_path: /localhome/kieron/fyp/blt/tokenizer/tokenizer.model
   patcher_args:
     patching_mode: entropy
     patching_device: cuda
     realtime_patching: true
-    entropy_model_checkpoint_dir: /scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/blt-entropy/50m_mC4
+    entropy_model_checkpoint_dir: /localhome/kieron/fyp/blt/blt-entropy-mc4-1M-original
     threshold: 1.335442066192627
     threshold_add: null
     max_patch_length: null
