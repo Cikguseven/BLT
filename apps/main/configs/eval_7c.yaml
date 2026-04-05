@@ -4,7 +4,7 @@ dump_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/dump-dir"
 # entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/hf-weights/entropy_model"
 entropy_ckpt_dir: "/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/blt-entropy/50m_mC4"
 generator:
-  max_tokens: 2048
+  max_tokens: 128
   dtype: bf16
   temperature: 0.0
   top_p: 0.95
@@ -52,15 +52,15 @@ harness:
     # - task: belebele_lao_Laoo
     #   num_fewshot: 0
 
-    # ── XNLI (natural language inference) ──────────────────────────────────
-    - task: xnli_en
-      num_fewshot: 0
-    - task: xnli_th
-      num_fewshot: 0
-    - task: xnli_vi
-      num_fewshot: 0
-    - task: xnli_zh
-      num_fewshot: 0
+    # # ── XNLI (natural language inference) ──────────────────────────────────
+    # - task: xnli_en
+    #   num_fewshot: 0
+    # - task: xnli_th
+    #   num_fewshot: 0
+    # - task: xnli_vi
+    #   num_fewshot: 0
+    # - task: xnli_zh
+    #   num_fewshot: 0
 
     # # ── XCOPA (commonsense causal reasoning) ────────────────────────────────
     # - task: xcopa_en
@@ -106,12 +106,12 @@ harness:
     # - task: xstorycloze_zh
     #   num_fewshot: 0
 
-    # # ── XQuAD (extractive question answering) ───────────────────────────────
+    # ── XQuAD (extractive question answering) ───────────────────────────────
     # - task: xquad_en
     #   num_fewshot: 0
     # - task: xquad_th
     #   num_fewshot: 0
     # - task: xquad_vi
     #   num_fewshot: 0
-    # - task: xquad_zh
-    #   num_fewshot: 0
+    - task: xquad_zh
+      num_fewshot: 0

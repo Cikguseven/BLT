@@ -236,6 +236,7 @@ SEA_11 = [
 
 VALID_LANGS = SEA_11
 
+
 # Simple byte tokenizer that segments text into UTF-8 bytes
 class ByteTokenizer:
     def __call__(self, lines: List[str], padding: bool = False, add_special_tokens: bool = False):

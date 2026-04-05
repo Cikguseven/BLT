@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ================================================================================
 Prompt #1: en->id
 ================================================================================
@@ -878,3 +879,885 @@ Prompt #20: zh->en
 他补充道：“我们现在有 4 个月大没有糖尿病的老鼠，但它们曾经得过该病。”
 ```
 
+=======
+================================================================================
+Prompt #1: en->id
+================================================================================
+Terjemahkan teks berikut ini ke dalam bahasa Indonesia.
+
+Jawablah hanya dengan menggunakan format berikut ini:
+Terjemahan: $TRANSLATION
+Ganti $TRANSLATION dengan teks yang telah diterjemahkan.
+
+Teks:
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+Terjemahan: Perang Penerus Spanyol menandai perang pertama dengan isu sentral berupa keseimbangan kekuatan.
+
+Teks:
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+Terjemahan: Banyak negara yang sepenuhnya fasih dalam bahasa Inggris, bahkan lebih banyak yang memiliki pengetahuan terbatas dari yang dapat Anda perkirakan - terutama di kalangan anak muda.
+
+Teks:
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+Terjemahan: Kurang dari seribu kasus pernah dilaporkan terjadi pada manusia, tetapi beberapa di antaranya merupakan kasus yang fatal.
+
+Teks:
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+Terjemahan: Dalam 3 bulan terakhir, lebih dari 80 tahanan dibebaskan dari fasilitas Central Booking tanpa dikenakan biaya secara resmi.
+
+Teks:
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+Terjemahan: Fokus dari pola pikir ini adalah kecepatan, logika, dan ketepatan, juga identifikasi fakta, penerapan kembali teknik yang ada, pengumpulan informasi.
+
+Teks:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #2: en->km
+================================================================================
+បកប្រែអត្ថបទខាងក្រោមទៅជាភាសាខ្មែរ។
+
+ឆ្លើយតបតែក្នុងទម្រង់ខាងក្រោម:
+ការបកប្រែ: $TRANSLATION
+ជំនួស $TRANSLATION ជាមួយអត្ថបទដែលបានបកប្រែ។
+
+អត្ថបទ:
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+ការប្រែសម្រួល: សង្គ្រាមដណ្តើមអំណាចគ្នារបស់ប្រទេសអេស្ប៉ាញ គឺជាសង្គ្រាមដំបូងគេ ដែល​បញ្ហាស្នូលនៃ​សង្គ្រាម​នេះ​ គឺ​តុល្យភាព​អំណាច។
+
+អត្ថបទ:
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+ការប្រែសម្រួល: មានប្រជា​ជាតិ​ជាច្រើន​ដែល​ចេះ​ប្រើ​ភាសាអង់គ្លេស​បាន​ល្អ​ ហើយ​ជាង​នេះ​ទៅ​ទៀត​ ​អ្នក​អាចរំពឹង​ថា ពួកគេមានចំណេះមាន​កម្រិត​ ជាពិសេស​ក្នុង​ចំណោមមនុស្សវ័យក្មេង។
+
+អត្ថបទ:
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+ការប្រែសម្រួល: បានរាយការណ៍ថា​មាន​តិចជាងមួយពាន់ករណី​បានកើតឡើង​ជាមួយនឹងមនុស្ស ប៉ុន្តែពួកគេខ្លះបានស្លាប់បាត់ទៅហើយ។
+
+អត្ថបទ:
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+ការប្រែសម្រួល: ក្នុងរយៈពេល 3 ខែ ចុងក្រោយ ជន​ត្រូវ​ចាប់ខ្លួន​ជាង 80 នាក់ ត្រូវ​បាន​ដោះលែង​ចេញ​ពី​មជ្ឈមណ្ឌល​ចុះ​បញ្ជី​កណ្តាល​ដោយ​មិន​បាន​ចោទ​ប្រកាន់​ជាផ្លូវការ​ឡើយ។
+
+អត្ថបទ:
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+ការប្រែសម្រួល: ការផ្តោតលើផ្នត់គំនិតនេះ គឺល្បឿន តក្កវិជ្ជា និងភាពត្រឹមត្រូវ ព្រមទាំងការកំណត់ការពិត ការអនុវត្តបច្ចេកទេសដែលមានស្រាប់ឡើងវិញ ការប្រមូលព័ត៌មាន។
+
+អត្ថបទ:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #3: en->lo
+================================================================================
+ແປຂໍ້ຄວາມຂ້າງລຸ່ມເປັນພາສາລາວ.
+
+ຕອບກັບໃນຮູບແບບຕໍ່ໄປນີ້:
+ການແປ: $TRANSLATION
+ແທນທີ່ $TRANSLATION ດ້ວຍຂໍ້ຄວາມທີ່ແປແລ້ວ.
+
+ຂໍ້ຄວາມ:
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+ການແປ: ສົງຄາມແຫ່ງຄວາມສຳເລັດຂອງແອັດສະປາຍໄດ້ເຮັດສົງຄາມຄັ້ງທຳອິດເຊິ່ງບັນຫາໃຈກາງແມ່ນຄວາມສົມດຸນຂອງອຳນາດ.
+
+ຂໍ້ຄວາມ:
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+ການແປ: ທັງໝົດປະເທດຂອງຫຼາຍໆປະເທດແມ່ນມີຄວາມຄ່ອງແຄ້ວໃນການໃຊ້ພາສາອັງກິດ ແລະ ມັນຫຼາຍກວ່າທີ່ທ່ານຈະຄາດຫວັງເຖິງຄວາມຮູ້ທີ່ຈຳກັດ - ໂດຍສະເພາະໃນກຸ່ມໄວໜຸ່ມ.
+
+ຂໍ້ຄວາມ:
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+ການແປ: ມີຫນ້ອຍກວ່າພັນກໍລະນີທີ່ເຄີຍຖືກລາຍງານມາກ່ຽວກັບມະນຸດ, ແຕ່ວ່າມີບາງກໍລະນີກໍເປັນໂຣກຮ້າຍແຮງ.
+
+ຂໍ້ຄວາມ:
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+ການແປ: ໃນ 3 ເດືອນຜ່ານມາ, ຜູ້ຈັບກຸມຫຼາຍກວ່າ 80 ຄົນໄດ້ຖືກປ່ອຍຕົວອອກຈາກສູນກັກກັນໂດຍບໍ່ມີຂໍ້ກ່າວຫາຢ່າງເປັນທາງການ.
+
+ຂໍ້ຄວາມ:
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+ການແປ: ຈຸດລວມສຸມຂອງທັດສະນະຄະຕິນີ້ແມ່ນ ຄວາມໄວ, ໂລຊິກ ແລະ ຄວາມຖືກຕ້ອງແມ່ນຢຳ, ພ້ອມທັງການກຳນົດຂໍ້ເທັດຈິງ, ການນຳເຕັກນິກທີ່ມີຢູ່ມາໝູນໃຊ້ໃໝ່, ການລວບລວມຂໍ້ມູນ.
+
+ຂໍ້ຄວາມ:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #4: en->ms
+================================================================================
+Terjemahkan teks di bawah ke dalam bahasa Melayu.
+
+Balas hanya dalam format berikut:
+Terjemahan: $TRANSLATION
+Ganti $TRANSLATION dengan teks terjemahan.
+
+Teks:
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+Terjemahan: Perang Pewarisan Sepanyol menandakan perang pertama yang mana keseimbangan kuasa merupakan persoalan pertama.
+
+Teks:
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+Terjemahan: Banyak negara petah dalam bahasa Inggeris, dan dalam lebih banyak negara anda boleh menjangkakan pengetahuan yang berbatas - terutamanya dalam khalayak orang muda.
+
+Teks:
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+Terjemahan: Kurang daripada seribu kes yang pernah dilaporkan pada manusia, tetapi beberapa antaranya membawa maut.
+
+Teks:
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+Terjemahan: Dalam 3 bukan yang lepas, lebih 80 orang yang ditangkap telah dibebaskan daripada fasiliti Central Booking tanpa dicaj secara formal.
+
+Teks:
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+Terjemahan: Fokus untuk set pemikiran ini adalah kelajuan, logik, dan ketepatan, serta pengenalpastian fakta, menggunakan semua teknik yang ada, serta mengumpul maklumat.
+
+Teks:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #5: en->my
+================================================================================
+အောက်ဖော်ပြပါစာသားကို မြန်မာဘာသာသို့ ဘာသာပြန်ပါ။
+
+အောက်ပါဖော်မက်ဖြင့်သာ စာပြန်ပါ-
+ဘာသာပြန်ချက်- $TRANSLATION
+ဘာသာပြန်ထားသော စာသားဖြင့် $TRANSLATION ကို အစားထိုးပါ။
+
+စာသား-
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+ဘာသာပြန်ချက် - စပိန်တို့၏စစ်ပွဲအောင်မြင်မှုသည် အဓိကပြဿနာမှာ အာဏာ၏ဟန်ချက်ညီမှုဖြစ်ခဲ့သော ပထမအကြိမ်စစ်ပွဲကို အမှတ်အသားဖြစ်စေခဲ့ပါသည်။
+
+စာသား-
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+ဘာသာပြန်ချက် - နိုင်ငံသားအများစုက အင်္ဂလိပ်လို ကောင်းစွာ ပြောနိုင်ပြီး အထူးသဖြင့် လူငယ်များသည် သင်ထင်ထားသည်ထက်ကို ပို၍ ဗဟုသုတ ရှိကြပါသည်။
+
+စာသား-
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+ဘာသာပြန်ချက် - လူတစ်ထောင်ခန့် ဖြစ်ပွားကြောင်း အစီရင်ခံထားသော်လည်း ၎င်းတို့အနက်အချို့မှာ သေစေနိုင်ပါသည်။
+
+စာသား-
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+ဘာသာပြန်ချက် - လွန်ခဲ့သော ၃ လတွင်၊ ဖမ်းဆီးခံရသူပေါင်း ၈၀ ကျော်ကို တရားဝင်တရားစွဲဆိုခြင်းမရှိဘဲ Central Booking အဆောက်အအုံမှ လွှတ်ပေးခဲ့ပါသည်။
+
+စာသား-
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+ဘာသာပြန်ချက် - ဤစိတ်သဘောထား၏ အာရုံစိုက်မှုမှာ လက်ရှိနည်းလမ်းများကို ပြန်လည်အသုံးချရင်း အချက်အလက်များ စုဆောင်းကာ မြန်နှုန်း၊ ယုတ္တိဗေဒနှင့် တိကျမှုတို့အပြင် အချက်လက်များ ဖော်ထုတ်ခြင်း ဖြစ်သည်။
+
+စာသား-
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #6: en->ta
+================================================================================
+பின்வரும் உரையைத் தமிழ் மொழிக்கு மொழிபெயர்க்கவும்.
+
+பின்வரும் பதில் வடிவமைப்பை மட்டும் பயன்படுத்தி பதிலளிக்கவும்:
+மொழிபெயர்ப்பு: $TRANSLATION
+மொழிபெயர்த்த உரையுடன் $TRANSLATION ஐ மாற்றவும்.
+
+உரை:
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+மொழிபெயர்ப்பு: அதிகார சமநிலைதான் ஸ்பானிஷ் வாரிசுப் போருக்கான முதல் போரின் முக்கிய பிரச்சனையாக இருந்தது.
+
+உரை:
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+மொழிபெயர்ப்பு: பல தேசங்கள் முழுவதுமே ஆங்கிலத்தில் சரளமாக உள்ளன மற்றும் மேலும் பலவற்றில் குறைந்த அளவு ஆங்கில அறிவை, குறிப்பாக இளைஞர்களிடத்தில், எதிர் பார்க்கலாம்.
+
+உரை:
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+மொழிபெயர்ப்பு: மனிதர்களில் ஆயிரத்திற்கும் குறைவான வழக்குகள் அறிவிக்கப்பட்டுள்ளன, ஆனால், அவற்றில் சில உயிரைப் போக்கியவை.
+
+உரை:
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+மொழிபெயர்ப்பு: கடந்த 3 மாதங்களில், 80-க்கும் மேற்பட்ட கைது செய்யப்பட்டவர்கள், முறையாகக் குற்றஞ்சாட்டு தாக்கல் செய்யப்படாமல், மத்திய முன்பதிவு நிலையத்திலிருந்து விடுவிக்கப்பட்டனர்.
+
+உரை:
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+மொழிபெயர்ப்பு: இந்த மனப்பாங்கின் கவனம், வேகம், லாஜிக் மற்றும் துல்லியம் ஆகியவை, மேலும் உண்மைகளின் கண்டுபிடிப்பு, இருக்கும் உத்திகளின் மறு பயன்பாடு, தகவல் சேகரித்தல்.
+
+உரை:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #7: en->th
+================================================================================
+แปลข้อความต่อไปนี้เป็นภาษาไทย
+
+จงตอบตามรูปแบบดังต่อไปนี้:
+คำแปล: $TRANSLATION
+โดยจะต้องแทนที่ $TRANSLATION ด้วยข้อความที่แปลแล้ว
+
+ข้อความ:
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+คำแปล: สงครามสืบราชบัลลังก์สเปนนับเป็นสงครามครั้งแรกซึ่งปัญหาหลักคือเรื่องดุลอำนาจ
+
+ข้อความ:
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+คำแปล: หลายประเทศที่ประชากรทุกคนใช้ภาษาอังกฤษได้อย่างคล่องแคล่วทั่วทั้งประเทศ และยิ่งไปกว่านั้นคุณคาดการณ์ได้เลยว่าจะพบกับคนที่มีความรู้จำกัด โดยเฉพาะในกลุ่มประชากรที่มีอายุน้อยกว่า
+
+ข้อความ:
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+คำแปล: มีรายงานผู้ป่วยน้อยกว่าหนึ่งพันรายในมนุษย์ แต่บางรายมีความรุนแรงถึงขั้นทำให้เสียชีวิตได้
+
+ข้อความ:
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+คำแปล: ในช่วง 3 เดือนที่ผ่านมา ผู้ถูกจับกุมกว่า 80 รายได้รับการปล่อยตัวจากศูนย์บันทึกข้อหากลางโดยไม่ได้ถูกตั้งข้อหาอย่างเป็นทางการ
+
+ข้อความ:
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+คำแปล: หลักสำคัญของวิธีคิดนี้คือ ความรวดเร็ว ตรรกะ และความแม่นยำ รวมทั้งการบ่งบอกข้อเท็จจริง การนำเทคนิคที่มีอยู่แล้วมาใช้ซ้ำ และการรวบรวมข้อมูล
+
+ข้อความ:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #8: en->tl
+================================================================================
+Isalin ang sumusunod na teksto sa Filipino.
+
+Tumugon gamit ang sumusunod na format:
+Salin: $TRANSLATION
+Palitan ang $TRANSLATION gamit ng isinalin na teksto.
+
+Teksto:
+```
+They include the Netherlands, with Anna Jochemsen finishing ninth in the women's standing class in the Super-G yesterday, and Finland with Katja Saarinen finishing tenth in the same event.
+```
+Salin: Kasama dito ang Netherlands, dahil si Anna Jochemsen ay nagtapos na ikasiyam sa klaseng pambabaeng nakatayo sa Super-G kahapon, at ang Finland dahil si Katja Saarinen ay nagtapos na ikasampu sa parehong laban.
+
+Teksto:
+```
+So many of us find ourselves watching a television show that informs us of a process or experience in which we will never participate or apply that knowledge.
+```
+Salin: Napakarami sa atin ang nasusumpungan ang ating mga sarili na nanonood ng palabas sa telebisyon na nagbibigay-kaalaman sa atin tungkol sa isang proseso o karanasan kung saan hindi kailanman tayo makikibahagi o gagamit ng kaalamang iyon.
+
+Teksto:
+```
+He arrived in the US with 4 cents to his name, a book of poetry, and a letter of recommendation from Charles Batchelor (his manager in his previous job) to Thomas Edison.
+```
+Salin: Dumating siya sa US na may 4 na sentimo sa kaniyang pangalan, isang libro ng mga tula, at isang sulat ng rekomendasyon mula kay Charles Batchelor (ang kaniyang tagapamahala sa dati niyang trabaho) patungo kay Thomas Edison.
+
+Teksto:
+```
+The great pyramid was created to honor the Pharaoh Khufu, and many of the smaller pyramids, tombs, and temples were built to honor Khufu's wives and family members.
+```
+Salin: Ang great pyramid ay ginawa upang parangalan ang Pharaoh na si Khufu, at marami sa mga maliliit na pyramid, mga puntod, at mga templo ay ginawa upang parangalan ang mga asawa ni Khufu at mga miyembro ng pamilya.
+
+Teksto:
+```
+Tours are cheaper for larger groups, so if you're by yourself or with just one friend, try to meet other people and form a group of four to six for a better per-person rate.
+```
+Salin: Ang mga paglilibot ay mas mura para sa mas malalaking grupo, kaya kung ikaw ay mag-isa o may iisang kasama, iyong subukang makatagpo ng ibang tao at bumuo ng grupo ng apat hanggang anim upang makakuha ng mas mababang singil para sa bawat tao.
+
+Teksto:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #9: en->vi
+================================================================================
+Dịch văn bản dưới đây sang Tiếng Việt.
+
+Chỉ trả lời bằng cách sử dụng định dạng sau:
+Bản dịch: $TRANSLATION
+Thay thế $TRANSLATION bằng văn bản đã dịch.
+
+Văn bản:
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+Bản dịch: Chiến tranh Kế vị Tây Ban Nha đã đánh dấu chiến tranh đầu tiên mà vấn đề trọng tâm là sự cân bằng quyền lực.
+
+Văn bản:
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+Bản dịch: Nhiều quốc gia hoàn toàn thông thạo tiếng Anh, và ở nhiều quốc gia khác người dân cũng hiểu biết phần nào - nhất là trong số những người trẻ tuổi.
+
+Văn bản:
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+Bản dịch: Chỉ có chưa tới một ngàn ca bệnh ở người được báo cáo, nhưng một số ca đã dẫn đến tử vong.
+
+Văn bản:
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+Bản dịch: Trong vòng 3 tháng qua, đã có hơn 80 người bị bắt được thả ra khỏi trụ sở của Central Booking và không bị buộc tội chính thức.
+
+Văn bản:
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+Bản dịch: Sự tập trung tâm trí là tốc độ, sự hợp lý và tính chính xác, cũng như sự xác định thực tế, áp dụng lại các kỹ thuật có sẵn, thu thập thông tin.
+
+Văn bản:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #10: en->zh
+================================================================================
+将以下文本翻译成中文。
+
+请仅按以下格式回复:
+翻译：$TRANSLATION
+将 $TRANSLATION 替换为翻译后的文本。
+
+文本:
+```
+The War of Spanish Succession marked the first war whose central issue was the balance of power.
+```
+翻译: 西班牙继承权之战标志着第一场以权力平衡为核心问题的战争。
+
+文本:
+```
+Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+```
+翻译: 在许多国家/地区，全国的人都能说一口流利的英语，而在更多的国家/地区，人们对英语也略知一二，尤其是年轻人。
+
+文本:
+```
+Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+```
+翻译: 据报道，人类感染禽流感的病例不到 一千例，但其中有一些病例是致命的。
+
+文本:
+```
+In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+```
+翻译: 在过去的 3 个月里，超过 80 名被捕者在没有被正式起诉的情况下从中央拘留所释放。
+
+文本:
+```
+The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+```
+翻译: 这种思维模式看重的是速度、逻辑和准确性，还有甄别事实、对现有技术的重新应用和信息收集。
+
+文本:
+```
+"We now have 4-month-old mice that are non-diabetic that used to be diabetic," he added.
+```
+
+================================================================================
+Prompt #11: id->en
+================================================================================
+Terjemahkan teks berikut ini ke dalam bahasa Inggris.
+
+Jawablah hanya dengan menggunakan format berikut ini:
+Terjemahan: $TRANSLATION
+Ganti $TRANSLATION dengan teks yang telah diterjemahkan.
+
+Teks:
+```
+Perang Penerus Spanyol menandai perang pertama dengan isu sentral berupa keseimbangan kekuatan.
+```
+Terjemahan: The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+Teks:
+```
+Banyak negara yang sepenuhnya fasih dalam bahasa Inggris, bahkan lebih banyak yang memiliki pengetahuan terbatas dari yang dapat Anda perkirakan - terutama di kalangan anak muda.
+```
+Terjemahan: Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+Teks:
+```
+Kurang dari seribu kasus pernah dilaporkan terjadi pada manusia, tetapi beberapa di antaranya merupakan kasus yang fatal.
+```
+Terjemahan: Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+Teks:
+```
+Dalam 3 bulan terakhir, lebih dari 80 tahanan dibebaskan dari fasilitas Central Booking tanpa dikenakan biaya secara resmi.
+```
+Terjemahan: In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+Teks:
+```
+Fokus dari pola pikir ini adalah kecepatan, logika, dan ketepatan, juga identifikasi fakta, penerapan kembali teknik yang ada, pengumpulan informasi.
+```
+Terjemahan: The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+Teks:
+```
+"Saat ini ada mencit umur 4 bulan nondiabetes yang dulunya diabetes," tambahnya.
+```
+
+================================================================================
+Prompt #12: km->en
+================================================================================
+បកប្រែអត្ថបទខាងក្រោមទៅជាភាសាអង់គ្លេស
+
+ឆ្លើយតបតែក្នុងទម្រង់ខាងក្រោម:
+ការបកប្រែ: $TRANSLATION
+ជំនួស $TRANSLATION ជាមួយអត្ថបទដែលបានបកប្រែ។
+
+អត្ថបទ:
+```
+សង្គ្រាមដណ្តើមអំណាចគ្នារបស់ប្រទេសអេស្ប៉ាញ គឺជាសង្គ្រាមដំបូងគេ ដែល​បញ្ហាស្នូលនៃ​សង្គ្រាម​នេះ​ គឺ​តុល្យភាព​អំណាច។
+```
+ការប្រែសម្រួល: The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+អត្ថបទ:
+```
+មានប្រជា​ជាតិ​ជាច្រើន​ដែល​ចេះ​ប្រើ​ភាសាអង់គ្លេស​បាន​ល្អ​ ហើយ​ជាង​នេះ​ទៅ​ទៀត​ ​អ្នក​អាចរំពឹង​ថា ពួកគេមានចំណេះមាន​កម្រិត​ ជាពិសេស​ក្នុង​ចំណោមមនុស្សវ័យក្មេង។
+```
+ការប្រែសម្រួល: Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+អត្ថបទ:
+```
+បានរាយការណ៍ថា​មាន​តិចជាងមួយពាន់ករណី​បានកើតឡើង​ជាមួយនឹងមនុស្ស ប៉ុន្តែពួកគេខ្លះបានស្លាប់បាត់ទៅហើយ។
+```
+ការប្រែសម្រួល: Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+អត្ថបទ:
+```
+ក្នុងរយៈពេល 3 ខែ ចុងក្រោយ ជន​ត្រូវ​ចាប់ខ្លួន​ជាង 80 នាក់ ត្រូវ​បាន​ដោះលែង​ចេញ​ពី​មជ្ឈមណ្ឌល​ចុះ​បញ្ជី​កណ្តាល​ដោយ​មិន​បាន​ចោទ​ប្រកាន់​ជាផ្លូវការ​ឡើយ។
+```
+ការប្រែសម្រួល: In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+អត្ថបទ:
+```
+ការផ្តោតលើផ្នត់គំនិតនេះ គឺល្បឿន តក្កវិជ្ជា និងភាពត្រឹមត្រូវ ព្រមទាំងការកំណត់ការពិត ការអនុវត្តបច្ចេកទេសដែលមានស្រាប់ឡើងវិញ ការប្រមូលព័ត៌មាន។
+```
+ការប្រែសម្រួល: The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+អត្ថបទ:
+```
+"គាត់​បាន​បន្ថែម​ថា បច្ចុប្បន្ន​នេះ យើង​មាន​កណ្ដុរ​ដែល​មាន​អាយុ 4 ខែ ដែល​គ្មាន​ជំងឺ​ទឹក​នោ​ម​ផ្អែម ដែល​ពីមុន​វា​ធ្លាប់​មាន​ជំងឺ​ទឹកនោមផ្អែម។ "
+```
+
+================================================================================
+Prompt #13: lo->en
+================================================================================
+ແປຂໍ້ຄວາມຕໍ່ໄປນີ້ເປັນພາສາອັງກິດ
+
+ຕອບກັບໃນຮູບແບບຕໍ່ໄປນີ້:
+ການແປ: $TRANSLATION
+ແທນທີ່ $TRANSLATION ດ້ວຍຂໍ້ຄວາມທີ່ແປແລ້ວ.
+
+ຂໍ້ຄວາມ:
+```
+ສົງຄາມແຫ່ງຄວາມສຳເລັດຂອງແອັດສະປາຍໄດ້ເຮັດສົງຄາມຄັ້ງທຳອິດເຊິ່ງບັນຫາໃຈກາງແມ່ນຄວາມສົມດຸນຂອງອຳນາດ.
+```
+ການແປ: The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+ຂໍ້ຄວາມ:
+```
+ທັງໝົດປະເທດຂອງຫຼາຍໆປະເທດແມ່ນມີຄວາມຄ່ອງແຄ້ວໃນການໃຊ້ພາສາອັງກິດ ແລະ ມັນຫຼາຍກວ່າທີ່ທ່ານຈະຄາດຫວັງເຖິງຄວາມຮູ້ທີ່ຈຳກັດ - ໂດຍສະເພາະໃນກຸ່ມໄວໜຸ່ມ.
+```
+ການແປ: Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+ຂໍ້ຄວາມ:
+```
+ມີຫນ້ອຍກວ່າພັນກໍລະນີທີ່ເຄີຍຖືກລາຍງານມາກ່ຽວກັບມະນຸດ, ແຕ່ວ່າມີບາງກໍລະນີກໍເປັນໂຣກຮ້າຍແຮງ.
+```
+ການແປ: Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+ຂໍ້ຄວາມ:
+```
+ໃນ 3 ເດືອນຜ່ານມາ, ຜູ້ຈັບກຸມຫຼາຍກວ່າ 80 ຄົນໄດ້ຖືກປ່ອຍຕົວອອກຈາກສູນກັກກັນໂດຍບໍ່ມີຂໍ້ກ່າວຫາຢ່າງເປັນທາງການ.
+```
+ການແປ: In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+ຂໍ້ຄວາມ:
+```
+ຈຸດລວມສຸມຂອງທັດສະນະຄະຕິນີ້ແມ່ນ ຄວາມໄວ, ໂລຊິກ ແລະ ຄວາມຖືກຕ້ອງແມ່ນຢຳ, ພ້ອມທັງການກຳນົດຂໍ້ເທັດຈິງ, ການນຳເຕັກນິກທີ່ມີຢູ່ມາໝູນໃຊ້ໃໝ່, ການລວບລວມຂໍ້ມູນ.
+```
+ການແປ: The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+ຂໍ້ຄວາມ:
+```
+ທ່ານກ່າວຕື່ມວ່າ ດຽວນີ້ ພວກເຮົາມີໜູທີ່ມີອາຍຸ 4 ເດືອນທີ່ບໍ່ເປັນພະຍາດເບົາຫວານ ຊຶ່ງເຄີຍເປັນພະຍາດເບົາຫວານ. 
+```
+
+================================================================================
+Prompt #14: ms->en
+================================================================================
+Diterjemah ke dalam bahasa Inggeris
+
+Balas hanya dalam format berikut:
+Terjemahan: $TRANSLATION
+Ganti $TRANSLATION dengan teks terjemahan.
+
+Teks:
+```
+Perang Pewarisan Sepanyol menandakan perang pertama yang mana keseimbangan kuasa merupakan persoalan pertama.
+```
+Terjemahan: The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+Teks:
+```
+Banyak negara petah dalam bahasa Inggeris, dan dalam lebih banyak negara anda boleh menjangkakan pengetahuan yang berbatas - terutamanya dalam khalayak orang muda.
+```
+Terjemahan: Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+Teks:
+```
+Kurang daripada seribu kes yang pernah dilaporkan pada manusia, tetapi beberapa antaranya membawa maut.
+```
+Terjemahan: Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+Teks:
+```
+Dalam 3 bukan yang lepas, lebih 80 orang yang ditangkap telah dibebaskan daripada fasiliti Central Booking tanpa dicaj secara formal.
+```
+Terjemahan: In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+Teks:
+```
+Fokus untuk set pemikiran ini adalah kelajuan, logik, dan ketepatan, serta pengenalpastian fakta, menggunakan semua teknik yang ada, serta mengumpul maklumat.
+```
+Terjemahan: The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+Teks:
+```
+“Kami kini mempunyai seekor anak tikus yang berusia 4 bulan yang sudah tidak menghidap diabetes,” beliau menambah.
+```
+
+================================================================================
+Prompt #15: my->en
+================================================================================
+အောက်ပါစာသားကို အင်္ဂလိပ်လို ဘာသာပြန်ပါ။
+
+အောက်ပါဖော်မက်ဖြင့်သာ စာပြန်ပါ-
+ဘာသာပြန်ချက်- $TRANSLATION
+ဘာသာပြန်ထားသော စာသားဖြင့် $TRANSLATION ကို အစားထိုးပါ။
+
+စာသား-
+```
+စပိန်တို့၏စစ်ပွဲအောင်မြင်မှုသည် အဓိကပြဿနာမှာ အာဏာ၏ဟန်ချက်ညီမှုဖြစ်ခဲ့သော ပထမအကြိမ်စစ်ပွဲကို အမှတ်အသားဖြစ်စေခဲ့ပါသည်။
+```
+ဘာသာပြန်ချက် - The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+စာသား-
+```
+နိုင်ငံသားအများစုက အင်္ဂလိပ်လို ကောင်းစွာ ပြောနိုင်ပြီး အထူးသဖြင့် လူငယ်များသည် သင်ထင်ထားသည်ထက်ကို ပို၍ ဗဟုသုတ ရှိကြပါသည်။
+```
+ဘာသာပြန်ချက် - Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+စာသား-
+```
+လူတစ်ထောင်ခန့် ဖြစ်ပွားကြောင်း အစီရင်ခံထားသော်လည်း ၎င်းတို့အနက်အချို့မှာ သေစေနိုင်ပါသည်။
+```
+ဘာသာပြန်ချက် - Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+စာသား-
+```
+လွန်ခဲ့သော ၃ လတွင်၊ ဖမ်းဆီးခံရသူပေါင်း ၈၀ ကျော်ကို တရားဝင်တရားစွဲဆိုခြင်းမရှိဘဲ Central Booking အဆောက်အအုံမှ လွှတ်ပေးခဲ့ပါသည်။
+```
+ဘာသာပြန်ချက် - In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+စာသား-
+```
+ဤစိတ်သဘောထား၏ အာရုံစိုက်မှုမှာ လက်ရှိနည်းလမ်းများကို ပြန်လည်အသုံးချရင်း အချက်အလက်များ စုဆောင်းကာ မြန်နှုန်း၊ ယုတ္တိဗေဒနှင့် တိကျမှုတို့အပြင် အချက်လက်များ ဖော်ထုတ်ခြင်း ဖြစ်သည်။
+```
+ဘာသာပြန်ချက် - The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+စာသား-
+```
+"""ဆီးချိုရှိဖူးပေမယ့် အခုဆီးချိုမရှိတော့တဲ့ ၄ လသား ကြွက်လေးတွေ ရှိနေပါတယ်"" ဟုသူက ဖြည့်စွက်ပြောပါတယ်။"
+```
+
+================================================================================
+Prompt #16: ta->en
+================================================================================
+பின்வரும் உரையை ஆங்கில மொழிக்கு மொழிபெயர்க்கவும்.
+
+பின்வரும் பதில் வடிவமைப்பை மட்டும் பயன்படுத்தி பதிலளிக்கவும்:
+மொழிபெயர்ப்பு: $TRANSLATION
+மொழிபெயர்த்த உரையுடன் $TRANSLATION ஐ மாற்றவும்.
+
+உரை:
+```
+அதிகார சமநிலைதான் ஸ்பானிஷ் வாரிசுப் போருக்கான முதல் போரின் முக்கிய பிரச்சனையாக இருந்தது.
+```
+மொழிபெயர்ப்பு: The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+உரை:
+```
+பல தேசங்கள் முழுவதுமே ஆங்கிலத்தில் சரளமாக உள்ளன மற்றும் மேலும் பலவற்றில் குறைந்த அளவு ஆங்கில அறிவை, குறிப்பாக இளைஞர்களிடத்தில், எதிர் பார்க்கலாம்.
+```
+மொழிபெயர்ப்பு: Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+உரை:
+```
+மனிதர்களில் ஆயிரத்திற்கும் குறைவான வழக்குகள் அறிவிக்கப்பட்டுள்ளன, ஆனால், அவற்றில் சில உயிரைப் போக்கியவை.
+```
+மொழிபெயர்ப்பு: Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+உரை:
+```
+கடந்த 3 மாதங்களில், 80-க்கும் மேற்பட்ட கைது செய்யப்பட்டவர்கள், முறையாகக் குற்றஞ்சாட்டு தாக்கல் செய்யப்படாமல், மத்திய முன்பதிவு நிலையத்திலிருந்து விடுவிக்கப்பட்டனர்.
+```
+மொழிபெயர்ப்பு: In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+உரை:
+```
+இந்த மனப்பாங்கின் கவனம், வேகம், லாஜிக் மற்றும் துல்லியம் ஆகியவை, மேலும் உண்மைகளின் கண்டுபிடிப்பு, இருக்கும் உத்திகளின் மறு பயன்பாடு, தகவல் சேகரித்தல்.
+```
+மொழிபெயர்ப்பு: The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+உரை:
+```
+"எங்களிடம் இப்போது 4-மாத-வயதுடைய எலி ஒன்று உள்ளது, முன்னர் அதற்கு நீரிழிவு இருந்தது தற்போது இல்லை" என்று அவர் மேலும் கூறினார்.
+```
+
+================================================================================
+Prompt #17: th->en
+================================================================================
+แปลข้อความต่อไปนี้เป็นภาษาอังกฤษ
+
+จงตอบตามรูปแบบดังต่อไปนี้:
+คำแปล: $TRANSLATION
+โดยจะต้องแทนที่ $TRANSLATION ด้วยข้อความที่แปลแล้ว
+
+ข้อความ:
+```
+สงครามสืบราชบัลลังก์สเปนนับเป็นสงครามครั้งแรกซึ่งปัญหาหลักคือเรื่องดุลอำนาจ
+```
+คำแปล: The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+ข้อความ:
+```
+หลายประเทศที่ประชากรทุกคนใช้ภาษาอังกฤษได้อย่างคล่องแคล่วทั่วทั้งประเทศ และยิ่งไปกว่านั้นคุณคาดการณ์ได้เลยว่าจะพบกับคนที่มีความรู้จำกัด โดยเฉพาะในกลุ่มประชากรที่มีอายุน้อยกว่า
+```
+คำแปล: Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+ข้อความ:
+```
+มีรายงานผู้ป่วยน้อยกว่าหนึ่งพันรายในมนุษย์ แต่บางรายมีความรุนแรงถึงขั้นทำให้เสียชีวิตได้
+```
+คำแปล: Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+ข้อความ:
+```
+ในช่วง 3 เดือนที่ผ่านมา ผู้ถูกจับกุมกว่า 80 รายได้รับการปล่อยตัวจากศูนย์บันทึกข้อหากลางโดยไม่ได้ถูกตั้งข้อหาอย่างเป็นทางการ
+```
+คำแปล: In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+ข้อความ:
+```
+หลักสำคัญของวิธีคิดนี้คือ ความรวดเร็ว ตรรกะ และความแม่นยำ รวมทั้งการบ่งบอกข้อเท็จจริง การนำเทคนิคที่มีอยู่แล้วมาใช้ซ้ำ และการรวบรวมข้อมูล
+```
+คำแปล: The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+ข้อความ:
+```
+"ขณะนี้เรามีหนูอายุ 4 เดือนที่ไม่เป็นโรคเบาหวานซึ่งแต่ก่อนเคยเป็น" เขากล่าวเพิ่มเติม
+```
+
+================================================================================
+Prompt #18: tl->en
+================================================================================
+Isalin ang sumusunod na teksto sa English.
+
+Tumugon gamit ang sumusunod na format:
+Salin: $TRANSLATION
+Palitan ang $TRANSLATION gamit ng isinalin na teksto.
+
+Teksto:
+```
+Kasama dito ang Netherlands, dahil si Anna Jochemsen ay nagtapos na ikasiyam sa klaseng pambabaeng nakatayo sa Super-G kahapon, at ang Finland dahil si Katja Saarinen ay nagtapos na ikasampu sa parehong laban.
+```
+Salin: They include the Netherlands, with Anna Jochemsen finishing ninth in the women's standing class in the Super-G yesterday, and Finland with Katja Saarinen finishing tenth in the same event.
+
+Teksto:
+```
+Napakarami sa atin ang nasusumpungan ang ating mga sarili na nanonood ng palabas sa telebisyon na nagbibigay-kaalaman sa atin tungkol sa isang proseso o karanasan kung saan hindi kailanman tayo makikibahagi o gagamit ng kaalamang iyon.
+```
+Salin: So many of us find ourselves watching a television show that informs us of a process or experience in which we will never participate or apply that knowledge.
+
+Teksto:
+```
+Dumating siya sa US na may 4 na sentimo sa kaniyang pangalan, isang libro ng mga tula, at isang sulat ng rekomendasyon mula kay Charles Batchelor (ang kaniyang tagapamahala sa dati niyang trabaho) patungo kay Thomas Edison.
+```
+Salin: He arrived in the US with 4 cents to his name, a book of poetry, and a letter of recommendation from Charles Batchelor (his manager in his previous job) to Thomas Edison.
+
+Teksto:
+```
+Ang great pyramid ay ginawa upang parangalan ang Pharaoh na si Khufu, at marami sa mga maliliit na pyramid, mga puntod, at mga templo ay ginawa upang parangalan ang mga asawa ni Khufu at mga miyembro ng pamilya.
+```
+Salin: The great pyramid was created to honor the Pharaoh Khufu, and many of the smaller pyramids, tombs, and temples were built to honor Khufu's wives and family members.
+
+Teksto:
+```
+Ang mga paglilibot ay mas mura para sa mas malalaking grupo, kaya kung ikaw ay mag-isa o may iisang kasama, iyong subukang makatagpo ng ibang tao at bumuo ng grupo ng apat hanggang anim upang makakuha ng mas mababang singil para sa bawat tao.
+```
+Salin: Tours are cheaper for larger groups, so if you're by yourself or with just one friend, try to meet other people and form a group of four to six for a better per-person rate.
+
+Teksto:
+```
+"Mayroon na tayong 4 na buwang gulang na daga na hindi diabetic na dating diabetic," dagdag niya. 
+```
+
+================================================================================
+Prompt #19: vi->en
+================================================================================
+Dịch văn bản dưới đây sang Tiếng Anh.
+
+Chỉ trả lời bằng cách sử dụng định dạng sau:
+Bản dịch: $TRANSLATION
+Thay thế $TRANSLATION bằng văn bản đã dịch.
+
+Văn bản:
+```
+Chiến tranh Kế vị Tây Ban Nha đã đánh dấu chiến tranh đầu tiên mà vấn đề trọng tâm là sự cân bằng quyền lực.
+```
+Bản dịch: The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+Văn bản:
+```
+Nhiều quốc gia hoàn toàn thông thạo tiếng Anh, và ở nhiều quốc gia khác người dân cũng hiểu biết phần nào - nhất là trong số những người trẻ tuổi.
+```
+Bản dịch: Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+Văn bản:
+```
+Chỉ có chưa tới một ngàn ca bệnh ở người được báo cáo, nhưng một số ca đã dẫn đến tử vong.
+```
+Bản dịch: Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+Văn bản:
+```
+Trong vòng 3 tháng qua, đã có hơn 80 người bị bắt được thả ra khỏi trụ sở của Central Booking và không bị buộc tội chính thức.
+```
+Bản dịch: In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+Văn bản:
+```
+Sự tập trung tâm trí là tốc độ, sự hợp lý và tính chính xác, cũng như sự xác định thực tế, áp dụng lại các kỹ thuật có sẵn, thu thập thông tin.
+```
+Bản dịch: The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+Văn bản:
+```
+"Chúng tôi hiện có đàn chuột 4 tháng tuổi đã hết bị tiểu đường," ông nói thêm.
+```
+
+================================================================================
+Prompt #20: zh->en
+================================================================================
+将以下文字翻译成英文
+
+请仅按以下格式回复:
+翻译：$TRANSLATION
+将 $TRANSLATION 替换为翻译后的文本。
+
+文本：
+```
+西班牙继承权之战标志着第一场以权力平衡为核心问题的战争。
+```
+翻译：The War of Spanish Succession marked the first war whose central issue was the balance of power.
+
+文本：
+```
+在许多国家/地区，全国的人都能说一口流利的英语，而在更多的国家/地区，人们对英语也略知一二，尤其是年轻人。
+```
+翻译：Many entire nations are completely fluent in English, and in even more you can expect a limited knowledge - especially among younger people.
+
+文本：
+```
+据报道，人类感染禽流感的病例不到 一千例，但其中有一些病例是致命的。
+```
+翻译：Fewer than a thousand cases have ever been reported in humans, but some of them have been fatal.
+
+文本：
+```
+在过去的 3 个月里，超过 80 名被捕者在没有被正式起诉的情况下从中央拘留所释放。
+```
+翻译：In the last 3 months, over 80 arrestees were released from the Central Booking facility without being formally charged.
+
+文本：
+```
+这种思维模式看重的是速度、逻辑和准确性，还有甄别事实、对现有技术的重新应用和信息收集。
+```
+翻译：The focus of this mindset is speed, logic and accuracy, also identification of facts, reapplying existing techniques, gathering information.
+
+文本：
+```
+他补充道：“我们现在有 4 个月大没有糖尿病的老鼠，但它们曾经得过该病。”
+```
+
+>>>>>>> 1e4abcec7af33a2e8e00604481781a2d644ccfa6

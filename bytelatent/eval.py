@@ -99,7 +99,6 @@ class EvalHarnessLM(LM):
         groups = {}
         for i, req in enumerate(requests):
             prompt, gen_args = req.args
-            # Convert dict to hashable tuple, handling list values like 'until'
             arg_key = tuple(sorted((k, tuple(v) if isinstance(v, list) else v)
                             for k, v in gen_args.items()))
             if arg_key not in groups:
@@ -118,18 +117,10 @@ class EvalHarnessLM(LM):
             top_k = gen_args.get("top_k", 0)
             until = gen_args.get("until", [])
 
-            # Get max_gen_len from generation_kwargs - use 'max_length' from gen_args
             max_gen_len = gen_args.get("max_length", 1024)
-
-            # Be much more conservative with prompt length to avoid CUDA OOB errors.
-            # BLT models have patching overhead, so we need a larger safety margin.
-            # Use at most half the sequence length for the prompt, and cap gen_len too.
             max_gen_len = min(max_gen_len, self.max_seq_len // 2)
             max_prompt_len = max(1, self.max_seq_len - max_gen_len - 128)
 
-            logger.info(f"Generating for {len(prompts)} prompts with max_gen_len={max_gen_len}, max_prompt_len={max_prompt_len}, max_seq_len={self.max_seq_len}")
-
-            # Truncate prompts that are too long (by bytes) before passing to generate
             truncated_prompts = []
             for p in prompts:
                 encoded = self.tokenizer.encode(p, add_bos=False, add_eos=False)
@@ -138,7 +129,6 @@ class EvalHarnessLM(LM):
                     p = self.tokenizer.decode(encoded)
                 truncated_prompts.append(p)
 
-            # Process one prompt at a time to isolate failures
             for idx, prompt_text in zip(indices, truncated_prompts):
                 try:
                     torch.cuda.empty_cache()
@@ -159,26 +149,26 @@ class EvalHarnessLM(LM):
                     ids = generated_tokens_list[0]
                     text = self.tokenizer.decode(ids)
 
-                    # Apply until stopping criteria
                     for stop_str in until:
                         if stop_str in text:
                             text = text.split(stop_str)[0]
 
                     results[idx] = text
 
-                    # Log first few generations for debugging
                     if idx < 3:
                         logger.info(f"Generated for prompt {idx}: {text[:200]}...")
 
                 except Exception as e:
                     logger.error(f"Error during generation for prompt {idx}: {e}", exc_info=True)
                     results[idx] = ""
-                    # After a CUDA error, try to reset the state
                     try:
                         torch.cuda.synchronize()
                     except Exception:
                         pass
-                    torch.cuda.empty_cache()
+                    try:
+                        torch.cuda.empty_cache()
+                    except Exception:
+                        pass
 
         return results
 
@@ -262,7 +252,10 @@ class EvalHarnessLM(LM):
                 greedy_tokens = relevant_logits.argmax(dim=-1)
                 is_greedy = (greedy_tokens == target_tokens).all().item()
 
-                results.append((-loss.item(), is_greedy))
+                num_bytes = len(continuation)
+                normalized_ll = -loss.item() / num_bytes if num_bytes > 0 else 0.0
+
+                results.append((normalized_ll, is_greedy))
 
             except Exception as e:
                 logger.error(f"Error in loglikelihood: {e}", exc_info=True)
@@ -543,13 +536,14 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="/localhome/kieron/fyp/blt/apps/main/configs/eval.yaml",
+        default="/scratch/Projects/CFP-01/CFP01-CF-060/kieron/blt/apps/main/configs/eval.yaml",
         help="Path to the eval config YAML file",
     )
     args = parser.parse_args()
 
     eval_args = parse_args_to_pydantic_model(EvalArgs, cli_args=args.config)
     launch_eval(eval_args)
+
 
 if __name__ == "__main__":
     torch._dynamo.config.suppress_errors = True
